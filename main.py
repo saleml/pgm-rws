@@ -1,8 +1,11 @@
 '''Main file to be called to train a model with a given algorithm'''
 
 from rws.model import BasicModel
+from rws.algos.iwae import IWAE
+
 from argparse import ArgumentParser
 from torchvision import datasets, transforms
+
 import torch
 
 
@@ -31,6 +34,9 @@ parser.add_argument("--batch-size", type=int, default=128,
 
 parser.add_argument("--dataset", default='MNIST',
                     help="Dataset to use")
+
+parser.add_argument("--learning-rate", type=float, default=1e-4,
+                    help="Learning rate")
 args = parser.parse_args()
 
 
@@ -47,8 +53,12 @@ def main():
     input_dim = None  # TODO: define this
 
     # Create model
-    model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
-                       args.hidden_nonlinearity, args.decoder_nonlinearity)
+    if args.model == 'basic':
+        model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
+                           args.hidden_nonlinearity, args.decoder_nonlinearity)
+
+    # Define optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 
     # Train model
     if args.algo == 'rws':
@@ -58,8 +68,8 @@ def main():
         # TODO
         pass
     elif args.algo == 'iwae':
-        # TODO
-        pass
+        algo = IWAE(model, optimizer)
+        algo.train(train_loader, optimizer)
 
     # Evaluate
     # TODO: make sure to save results (tensorboard/ csv)
