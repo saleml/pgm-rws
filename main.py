@@ -1,5 +1,6 @@
 '''Main file to be called to train a model with a given algorithm'''
 
+import vae
 from rws.model import BasicModel
 from argparse import ArgumentParser
 
@@ -41,8 +42,7 @@ if args.algo == 'rws':
     # TODO
     pass
 elif args.algo == 'vae':
-    # TODO
-    pass
+    update = vae.update
 elif args.algo == 'iwae':
     # TODO
     pass
