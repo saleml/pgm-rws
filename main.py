@@ -2,6 +2,8 @@
 
 from rws.model import BasicModel
 from argparse import ArgumentParser
+from torchvision import datasets, transforms
+import torch
 
 
 # Parse arguments
@@ -9,7 +11,8 @@ parser = ArgumentParser()
 parser.add_argument("--algo", default='rws',
                     help="Algorithm to use. rws, vae, or iwae (default: rws)")
 parser.add_argument("--variance-reduction",
-                    help="Variance reduction technique for inference network gradients var. reduction (default:None")
+                    help="Variance reduction technique for inference network gradients var. reduction (default:None)")
+
 parser.add_argument("--model", default='basic',
                     help="Architecture to use. basic or double (default: basic)")
 parser.add_argument("--hidden-dim", type=int, default=200,
@@ -22,11 +25,21 @@ parser.add_argument("--hidden-nonlinearity", default='tanh',
                     help="Non linearity of the hidden layers")
 parser.add_argument("--decoder-nonlinearity", default='sigmoid',
                     help="Non linearity of the decoder")
+
+parser.add_argument("--batch-size", type=int, default=128,
+                    help="Batch size")
+
+parser.add_argument("--dataset", default='MNIST',
+                    help="Dataset to use")
 args = parser.parse_args()
 
 
 # Load data
-# TODO
+if args.dataset == 'MNIST':
+    dataset = datasets.MNIST
+train_loader = torch.utils.data.DataLoader(dataset('../data', train=True, download=True,
+                                                   transform=transforms.ToTensor()),
+                                           batch_size=args.batch_size, shuffle=True)
 
 # Transform data
 # TODO: e.g. if MNIST, make sure input is transformed to 1d
