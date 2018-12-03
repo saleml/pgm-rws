@@ -34,37 +34,38 @@ parser.add_argument("--dataset", default='MNIST',
 args = parser.parse_args()
 
 
-# Load data
-if args.dataset == 'MNIST':
-    dataset = datasets.MNIST
-train_loader = torch.utils.data.DataLoader(dataset('../data', train=True, download=True,
-                                                   transform=transforms.ToTensor()),
-                                           batch_size=args.batch_size, shuffle=True)
+def main():
+    # Load data
+    if args.dataset == 'MNIST':
+        dataset = datasets.MNIST
+    train_loader = torch.utils.data.DataLoader(dataset('../data', train=True, download=True,
+                                                       transform=transforms.ToTensor()),
+                                               batch_size=args.batch_size, shuffle=True)
 
-# Transform data
-# TODO: e.g. if MNIST, make sure input is transformed to 1d
-input_dim = None  # TODO: define this
+    # Transform data
+    # TODO: e.g. if MNIST, make sure input is transformed to 1d
+    input_dim = None  # TODO: define this
 
-# Create model
-model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
-                   args.hidden_nonlinearity, args.decoder_nonlinearity)
+    # Create model
+    model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
+                       args.hidden_nonlinearity, args.decoder_nonlinearity)
 
-# Train model
-if args.algo == 'rws':
-    # TODO
-    pass
-elif args.algo == 'vae':
-    # TODO
-    pass
-elif args.algo == 'iwae':
-    # TODO
-    pass
+    # Train model
+    if args.algo == 'rws':
+        # TODO
+        pass
+    elif args.algo == 'vae':
+        # TODO
+        pass
+    elif args.algo == 'iwae':
+        # TODO
+        pass
 
-# Evaluate
-# TODO: make sure to save results (tensorboard/ csv)
-
-
+    # Evaluate
+    # TODO: make sure to save results (tensorboard/ csv)
 
 
+if __name__ == "__main__":
+    main()
 
 
