@@ -4,6 +4,7 @@ from rws.model import BasicModel
 from argparse import ArgumentParser
 from torchvision import datasets, transforms
 import torch
+from functools import partial
 
 
 # Parse arguments
@@ -37,14 +38,16 @@ args = parser.parse_args()
 def main():
     # Load data
     if args.dataset == 'MNIST':
-        dataset = datasets.MNIST
-    train_loader = torch.utils.data.DataLoader(dataset('../data', train=True, download=True,
-                                                       transform=transforms.ToTensor()),
+        transform = transforms.Compose((
+            transforms.ToTensor(),
+            partial(torch.flatten, start_dim=1),
+            partial(torch.gt, other=0.5))
+        )
+        dataset = datasets.MNIST('../data', train=True, download=True,
+                                 transform=transform)
+        input_dim = dataset[0][0].shape[1]
+    train_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=args.batch_size, shuffle=True)
-
-    # Transform data
-    # TODO: e.g. if MNIST, make sure input is transformed to 1d
-    input_dim = None  # TODO: define this
 
     # Create model
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
@@ -55,8 +58,7 @@ def main():
         # TODO
         pass
     elif args.algo == 'vae':
-        # TODO
-        pass
+        update = vae.update
     elif args.algo == 'iwae':
         # TODO
         pass
