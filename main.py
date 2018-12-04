@@ -3,6 +3,9 @@
 import vae
 from rws.model import BasicModel
 from argparse import ArgumentParser
+from torchvision import datasets, transforms
+import torch
+from functools import partial
 
 
 # Parse arguments
@@ -10,7 +13,8 @@ parser = ArgumentParser()
 parser.add_argument("--algo", default='rws',
                     help="Algorithm to use. rws, vae, or iwae (default: rws)")
 parser.add_argument("--variance-reduction",
-                    help="Variance reduction technique for inference network gradients var. reduction (default:None")
+                    help="Variance reduction technique for inference network gradients var. reduction (default:None)")
+
 parser.add_argument("--model", default='basic',
                     help="Architecture to use. basic or double (default: basic)")
 parser.add_argument("--hidden-dim", type=int, default=200,
@@ -23,35 +27,52 @@ parser.add_argument("--hidden-nonlinearity", default='tanh',
                     help="Non linearity of the hidden layers")
 parser.add_argument("--decoder-nonlinearity", default='sigmoid',
                     help="Non linearity of the decoder")
+
+parser.add_argument("--batch-size", type=int, default=128,
+                    help="Batch size")
+
+parser.add_argument("--dataset", default='MNIST',
+                    help="Dataset to use")
 args = parser.parse_args()
 
 
-# Load data
-# TODO
+def main():
+    # Load data
+    if args.dataset == 'MNIST':
+        transform = transforms.Compose((
+            transforms.ToTensor(),
+            partial(torch.flatten, start_dim=1))
+        )
+        dataset = datasets.MNIST('../data', train=True, download=True,
+                                 transform=transforms.ToTensor())
+        input_dim = dataset[0][0].shape
+        print(input_dim)
+    train_loader = torch.utils.data.DataLoader(dataset,
+                                               batch_size=args.batch_size, shuffle=True)
 
-# Transform data
-# TODO: e.g. if MNIST, make sure input is transformed to 1d
-input_dim = None  # TODO: define this
+    # Transform data
+    # TODO: e.g. if MNIST, make sure input is transformed to 1d
+    # input_dim = None  # TODO: define this
 
-# Create model
-model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
-                   args.hidden_nonlinearity, args.decoder_nonlinearity)
+    # Create model
+    model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
+                       args.hidden_nonlinearity, args.decoder_nonlinearity)
 
-# Train model
-if args.algo == 'rws':
-    # TODO
-    pass
-elif args.algo == 'vae':
-    update = vae.update
-elif args.algo == 'iwae':
-    # TODO
-    pass
+    # Train model
+    if args.algo == 'rws':
+        # TODO
+        pass
+    elif args.algo == 'vae':
+        update = vae.update
+    elif args.algo == 'iwae':
+        # TODO
+        pass
 
-# Evaluate
-# TODO: make sure to save results (tensorboard/ csv)
-
-
+    # Evaluate
+    # TODO: make sure to save results (tensorboard/ csv)
 
 
+if __name__ == "__main__":
+    main()
 
 
