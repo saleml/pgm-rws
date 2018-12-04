@@ -21,6 +21,10 @@ class BasicModel(nn.Module):
 
         self.discrete = discrete
 
+        if self.discrete:
+            self.pre_pi = torch.zeros(encoding_dim)
+            self.pi = F.softmax(self.pre_pi)
+
         # Encoder
         transformation = ACTIVATION_FUNCTIONS[hidden_nonlinearity]
         encoder_modules = [nn.Linear(input_dim, hidden_dim), transformation]
@@ -76,3 +80,13 @@ class BasicModel(nn.Module):
         sample, mu, sigma = self.encode(input, reparametrize)
         p, mu_gen, sigma_gen = self.decode(sample)
         return (sample, mu, sigma), (p, mu_gen, sigma_gen)
+
+    def sample(self, num_samples):
+        if self.discrete:
+            distrib = Categorical(self.pi)
+            integer_samples = distrib.sample((num_samples, ))
+            one_hot_samples = torch.zeros((num_samples, self.encoding_dim))
+            one_hot_samples[torch.arange(0, num_samples), integer_samples] = 1.
+            samples, _, _ = self.decode(one_hot_samples)
+
+
