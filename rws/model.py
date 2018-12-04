@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from torch.distributions import Normal
+from torch.distributions import Normal, Categorical
+from torch.nn import functional as F
 
 ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
                         'relu': nn.ReLU(),
@@ -9,7 +10,7 @@ ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
 
 class BasicModel(nn.Module):
     def __init__(self, input_dim, hidden_dim=200, hidden_layers=2, encoding_dim=50, hidden_nonlinearity='tanh',
-                 decoder_nonlinearity='sigmoid'):
+                 decoder_nonlinearity='sigmoid', discrete=False):
         super().__init__()
 
         self.input_dim = input_dim
@@ -17,6 +18,8 @@ class BasicModel(nn.Module):
         self.encoding_dim = encoding_dim
         self.hidden_nonlinearity = hidden_nonlinearity
         self.hidden_layers = hidden_layers
+
+        self.discrete = discrete
 
         # Encoder
         transformation = ACTIVATION_FUNCTIONS[hidden_nonlinearity]
@@ -38,19 +41,27 @@ class BasicModel(nn.Module):
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
         mu = self.fc_mu(out)
-        logsigma = self.fc_logsigma(out)
-        sigma = torch.exp(logsigma)
-        if not reparametrize:
-            sample = Normal(mu, sigma).sample()
+        if not self.discrete:
+            logsigma = self.fc_logsigma(out)
+            sigma = torch.exp(logsigma)
+            if not reparametrize:
+                sample = Normal(mu, sigma).sample()
+            else:
+                eps = torch.normal(torch.zeros(mu.size()))
+                sample = torch.sqrt(sigma) * eps + mu
+            return sample, mu, sigma
         else:
-            eps = torch.normal(torch.zeros(mu.size()))
-            sample = torch.sqrt(sigma) * eps + mu
-        return sample, mu, sigma
+            probas = F.softmax(mu)
+            distrib = Categorical(probas)
+            sample = distrib.sample()
+            one_hot = torch.zeros(mu.size())
+            one_hot[sample] = 1.
+            return one_hot, probas, _
 
     def decode(self, sample):
         return self.decoder(sample)
 
-    def forward(self, input):
-        sample, mu, sigma = self.encode(input)
+    def forward(self, input, reparametrize=False):
+        sample, mu, sigma = self.encode(input, reparametrize)
         p = self.decode(sample)
         return (sample, mu, sigma), p
