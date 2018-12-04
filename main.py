@@ -41,12 +41,12 @@ def main():
     if args.dataset == 'MNIST':
         transform = transforms.Compose((
             transforms.ToTensor(),
-            partial(torch.flatten, start_dim=1))
+            partial(torch.flatten, start_dim=1),
+            partial(torch.gt, other=0.5))
         )
         dataset = datasets.MNIST('../data', train=True, download=True,
-                                 transform=transforms.ToTensor())
-        input_dim = dataset[0][0].shape
-        print(input_dim)
+                                 transform=transform)
+        input_dim = dataset[0][0].shape[1]
     train_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=args.batch_size, shuffle=True)
 
