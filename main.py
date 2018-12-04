@@ -50,10 +50,6 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size=args.batch_size, shuffle=True)
 
-    # Transform data
-    # TODO: e.g. if MNIST, make sure input is transformed to 1d
-    # input_dim = None  # TODO: define this
-
     # Create model
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
                        args.hidden_nonlinearity, args.decoder_nonlinearity)
