@@ -10,7 +10,7 @@ ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
 
 class BasicModel(nn.Module):
     def __init__(self, input_dim, hidden_dim=200, hidden_layers=2, encoding_dim=50, hidden_nonlinearity='tanh',
-                 decoder_nonlinearity='sigmoid', discrete=False):
+                 discrete=False):
         super().__init__()
 
         self.input_dim = input_dim
@@ -34,9 +34,11 @@ class BasicModel(nn.Module):
         # Decoder
         decoder_modules = [nn.Linear(encoding_dim, hidden_dim), transformation]
         decoder_modules += [nn.Linear(hidden_dim, hidden_dim), transformation] * (hidden_layers - 1)
-        decoder_modules += [nn.Linear(hidden_dim, input_dim), ACTIVATION_FUNCTIONS[decoder_nonlinearity]]
 
         self.decoder = nn.Sequential(*decoder_modules)
+
+        self.fc_mu_dec = nn.Linear(hidden_dim, input_dim)
+        self.fc_logsigma_dec = nn.Linear(hidden_dim, input_dim)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
@@ -53,15 +55,24 @@ class BasicModel(nn.Module):
         else:
             probas = F.softmax(mu)
             distrib = Categorical(probas)
-            sample = distrib.sample()
-            one_hot = torch.zeros(mu.size())
-            one_hot[sample] = 1.
-            return one_hot, probas, _
+            sample_int = distrib.sample()
+            sample = torch.zeros(mu.size())
+            sample[sample_int] = 1.
+            return sample, probas, _
 
     def decode(self, sample):
-        return self.decoder(sample)
+        out = self.decoder(sample)
+        mu = self.fc_mu_dec(out)
+        if not self.discrete:
+            sample = F.sigmoid(mu)
+            sigma = None
+        else:
+            logsigma = self.fc_logsigma_dec(out)
+            sigma = torch.exp(logsigma)
+            sample = Normal(mu, sigma).sample()
+        return sample, mu, sigma
 
     def forward(self, input, reparametrize=False):
         sample, mu, sigma = self.encode(input, reparametrize)
-        p = self.decode(sample)
-        return (sample, mu, sigma), p
+        p, mu_gen, sigma_gen = self.decode(sample)
+        return (sample, mu, sigma), (p, mu_gen, sigma_gen)
