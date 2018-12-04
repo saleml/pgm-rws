@@ -1,6 +1,5 @@
 '''Main file to be called to train a model with a given algorithm'''
 
-import vae
 from rws.model import BasicModel
 from argparse import ArgumentParser
 from torchvision import datasets, transforms
