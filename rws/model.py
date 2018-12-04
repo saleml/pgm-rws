@@ -35,12 +35,16 @@ class BasicModel(nn.Module):
 
         self.decoder = nn.Sequential(*decoder_modules)
 
-    def encode(self, input):
+    def encode(self, input, reparametrize=False):
         out = self.encoder(input)
         mu = self.fc_mu(out)
         logsigma = self.fc_logsigma(out)
         sigma = torch.exp(logsigma)
-        sample = Normal(mu, sigma).sample()
+        if not reparametrize:
+            sample = Normal(mu, sigma).sample()
+        else:
+            eps = torch.normal(torch.zeros(mu.size()))
+            sample = torch.sqrt(sigma) * eps + mu
         return sample, mu, sigma
 
     def decode(self, sample):
