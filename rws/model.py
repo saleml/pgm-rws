@@ -88,5 +88,7 @@ class BasicModel(nn.Module):
             one_hot_samples = torch.zeros((num_samples, self.encoding_dim))
             one_hot_samples[torch.arange(0, num_samples), integer_samples] = 1.
             samples, _, _ = self.decode(one_hot_samples)
-
-
+        else:
+            z = torch.normal(torch.zeros(num_samples, self.encoding_dim))
+            samples, _, _ = self.decode(z)
+        return samples
