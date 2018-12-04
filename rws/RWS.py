@@ -1,20 +1,22 @@
 import torch
+from torch.distributions import Normal
+from torch.distributions.one_hot_categorical import OneHotCategorical
+import numpy as np
+
 from torch import nn
 
 from rws.model import BasicModel
 
 
-class RWS_1 (nn.Module):
+class RWS_1 (object):
     '''
     INPUT ARGUMENTS
 
-    input_dim : input dimension (eg 784 for mini MNSIT)
+    model : the model to use
     K : number of particles
-    hidden_dim : hidden dimension (default = 200)
-    hidden_layers : number of hidden layers (as described in BasicModel)
-    encoding_dim : latent code dimension (default = 50)
-    hidden_nonlinearity : hidden non linearity (default = tanh)
-    decoder_nonlinearity : decoder non linearity (default = sigmoid)
+    optim_recog : optimizer of recognition network
+    optim_model : optimizer of model
+    mode : 'MNIST', 'dis-GMM', 'cont-GMM'
 
     OUTPUT :
 
@@ -22,14 +24,16 @@ class RWS_1 (nn.Module):
     train step : performs model update, q wake update q sleep update
 
     '''
-    def __init__(self,input_dim , K=1,hidden_dim=200, hidden_layers=1, encoding_dim=50, hidden_nonlinearity='tanh',
-                 decoder_nonlinearity='sigmoid'):
+    def __init__(self, model, optim_recog, optim_model, K=1, mode ='MNIST'):
         super(RWS_1, self).__init__()
-        self.model = BasicModel(input_dim,hidden_dim,hidden_layers,encoding_dim,hidden_nonlinearity,decoder_nonlinearity)
+        self.model = model
+        self.optim_recog = optim_recog
+        self.optim_model = optim_model
         self.K = K
+        self.mode = mode
     def forward(self,X):
-        (sample, mu, sigma), p = self.model(X)
-        return sample, mu, 2*torch.log(sigma),p
+        (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X)
+        return sample, mu, 2*torch.log(sigma), model_sample, model_mu, 2*torch.log(model_sigma)
 
     def get_loss_p_update(self, mean, logvar, input):
 
@@ -77,56 +81,90 @@ class RWS_1 (nn.Module):
         return -torch.mean(batch_loss)
 
     def get_loss_q_sleep_update(self,mean):
-        h = torch.rand_like(mean)
-        x_gh = self.model.decode(h)
-        sample, mean, sigma = self.model.encode(x_gh)
-        logvar = 2*torch.log(sigma)
 
-        log_q_h_gx = torch.sum(-0.5*logvar -0.5*torch.exp(-logvar)*(h-mean)**2,-1)
+        if self.mode == 'MNIST' :
+            h = torch.rand_like(mean)
+            x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+            sample, mean, sigma = self.model.encode(x_gh_sample)
+            logvar = 2*torch.log(sigma)
+
+            log_q_h_gx = torch.sum(-0.5*logvar -0.5*torch.exp(-logvar)*(h-mean)**2,-1)
+
+        if self.mode == 'dis-GMM':
+            h = OneHotCategorical(self.model.pi)
+            x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+            sample, mean, sigma = self.model.encode(x_gh_sample)
+
+            log_q_h_gx = torch.sum(h*torch.log(mean))
+
+        if self.mode == 'cont-GMM':
+            h = torch.rand_like(mean)
+            x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+            sample, mean, sigma = self.model.encode(x_gh_sample)
+
+            log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
+
+
         return -torch.mean(log_q_h_gx)
 
 
-    def get_importance_weight_gauss(self, mean,logvar,input):
-        eps = torch.rand_like(mean)
-        h = mean + eps*torch.exp(logvar/2)
-        h = h.detach()
-        x_gh = self.model.decode(h)
-        log_q_h_gx = torch.sum(-0.5*logvar -0.5*torch.exp(-logvar)*(h-mean)**2,-1)
-        log_p_x_gh = torch.sum(input*torch.log(x_gh) + (1-input)*torch.log(1-x_gh), -1)
-        log_p_h = torch.sum(-0.5*(h)**2,-1)
+    def get_importance_weight(self, mean,logvar,input):
+
+        if self.mode == 'MNIST':
+            h = Normal(mean, torch.exp(logvar / 2))
+            x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+
+            log_q_h_gx = torch.sum(-0.5*logvar -0.5*torch.exp(-logvar)*(h-mean)**2,-1)
+            log_p_x_gh = torch.sum(input*torch.log(x_gh_mean) + (1-input)*torch.log(1-x_gh_mean), -1)
+            log_p_h = torch.sum(-0.5*(h)**2,-1)
+        if self.mode == 'dis-GMM' :
+            h = OneHotCategorical(mean)
+            x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+
+            log_q_h_gx = torch.sum(h*torch.log(mean))
+            log_p_x_gh = torch.sum( -0.5*torch.log(x_gh_sigma**2) -0.5*(x_gh_sigma**2)*(input -x_gh_mean)**2, -1)
+            log_p_h = torch.sum(h*torch.log(self.model.pi), -1)
+        if self.mode == 'cont-GMM' :
+            h = Normal(mean, torch.exp(logvar / 2))
+            x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+
+            log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
+            log_p_x_gh = torch.sum(
+                -0.5 * torch.log(x_gh_sigma ** 2) - 0.5 * (x_gh_sigma ** 2) * (input - x_gh_mean) ** 2, -1)
+            log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
+
+
+
 
         log_p_x_h = log_p_x_gh + log_p_h
         log_weight = log_p_x_gh + log_p_h - log_q_h_gx
-       # weight = torch.exp(log_weight)
-
 
         return log_weight, log_q_h_gx, log_p_x_h
 
-    def train_step(self,optim_model, optim_recog, data):
+    def train_step(self, data):
 
         #model update
-        sample, mean, logvar, p = self.forward(data)
+        sample, mean, logvar, p_sample, p_mu, p_logvar = self.forward(data)
         loss_model = self.get_loss_p_update(mean, logvar, data)
-        self.zero_grad()
+        self.model.zero_grad()
         loss_model.backward()
-        optim_model.step()
+        self.optim_model.step()
 
-        sample, mean, logvar, p   = self.forward(data)
+        sample, mean, logvar, p_sample, p_mu, p_logvar  = self.forward(data)
 
         #Wake Q update
-        self.zero_grad()
+        self.model.zero_grad()
         loss_q_wake = self.get_loss_q_wake_update(mean, logvar, data)
         loss_q_wake.backward()
-        optim_recog.step()
+        self.optim_recog.step()
 
         #Sleep q update
-        self.zero_grad()
+        self.model.zero_grad()
         loss_q_sleep = self.get_loss_q_sleep_update(mean)
         loss_q_sleep.backward()
-        optim_recog.step()
+        self.optim_recog.step()
 
         return mean, logvar, loss_model,loss_q_wake, loss_q_sleep
-
 
 
 
