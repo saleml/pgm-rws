@@ -4,7 +4,7 @@ import torch
 
 
 def reconstruction_loss(x, reconstruction, *args):
-    return F.binary_cross_entropy(torch.sigmoid(reconstruction), x, reduction='sum')
+    return F.binary_cross_entropy(reconstruction, x, reduction='sum')
 
 
 def normal_pdf_loss(x, mu, sigma, *args):
