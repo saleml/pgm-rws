@@ -23,7 +23,6 @@ class BasicModel(nn.Module):
 
         if self.discrete:
             self.pre_pi = torch.zeros(encoding_dim)
-            self.pi = F.softmax(self.pre_pi)
 
         # Encoder
         transformation = ACTIVATION_FUNCTIONS[hidden_nonlinearity]
@@ -43,6 +42,10 @@ class BasicModel(nn.Module):
 
         self.fc_mu_dec = nn.Linear(hidden_dim, input_dim)
         self.fc_logsigma_dec = nn.Linear(hidden_dim, input_dim)
+
+    @property
+    def pi(self):
+        return F.softmax(self.pre_pi)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
