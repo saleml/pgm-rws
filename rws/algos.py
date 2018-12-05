@@ -8,7 +8,7 @@ from torch import nn
 from rws.model import BasicModel
 
 
-class RWS_1(object):
+class RWS(object):
     '''
     INPUT ARGUMENTS
 

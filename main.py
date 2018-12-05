@@ -1,6 +1,7 @@
 '''Main file to be called to train a model with a given algorithm'''
 
 from rws.model import BasicModel
+from rws.algos import RWS
 from argparse import ArgumentParser
 from torchvision import datasets, transforms
 import torch
@@ -30,6 +31,12 @@ parser.add_argument("--batch-size", type=int, default=128,
 
 parser.add_argument("--dataset", default='MNIST',
                     help="Dataset to use")
+
+parser.add_argument("--K", default=1,
+                    help="number of particles for IWAE and RWS")
+
+parser.add_argument("--mode", default='MNIST',
+                    help="MNIST, dis-GMM, cont-GMM mode ")
 args = parser.parse_args()
 
 
@@ -51,10 +58,17 @@ def main():
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
                        args.hidden_nonlinearity)
 
+    encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(model.fc_logsigma.parameters())
+    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(model.fc_logsigma_dec.parameters()) + list(model.pre_pi)
+
+    optim_recog = torch.optim.Adam(encoder_params)
+    optim_model = torch.optim.Adam(decoder_params)
+
     # Train model
     if args.algo == 'rws':
-        # TODO
-        pass
+
+        algo = RWS(model,optim_recog, optim_model, K = args.K)
+
     elif args.algo == 'vae':
         update = vae.update
     elif args.algo == 'iwae':
