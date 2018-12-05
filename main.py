@@ -70,7 +70,7 @@ def main():
         algo = RWS(model,optim_recog, optim_model, K = args.K)
 
     elif args.algo == 'vae':
-        update = vae.update
+       # update = vae.update
     elif args.algo == 'iwae':
         # TODO
         pass
