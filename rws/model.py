@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.distributions import Normal, Categorical
+from torch.distributions import Normal, OneHotCategorical
 from torch.nn import functional as F
 
 ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
@@ -61,10 +61,8 @@ class BasicModel(nn.Module):
             return sample, mu, sigma
         else:
             probas = F.softmax(mu)
-            distrib = Categorical(probas)
-            sample_int = distrib.sample()
-            sample = torch.zeros(mu.size())
-            sample[sample_int] = 1.
+            distrib = OneHotCategorical(probas)
+            sample = distrib.sample()
             return sample, probas, _
 
     def decode(self, sample):
@@ -86,11 +84,9 @@ class BasicModel(nn.Module):
 
     def sample(self, num_samples):
         if self.discrete:
-            distrib = Categorical(self.pi)
-            integer_samples = distrib.sample((num_samples, ))
-            one_hot_samples = torch.zeros((num_samples, self.encoding_dim))
-            one_hot_samples[torch.arange(0, num_samples), integer_samples] = 1.
-            samples, _, _ = self.decode(one_hot_samples)
+            distrib = OneHotCategorical(self.pi)
+            z = distrib.sample((num_samples, ))
+            samples, _, _ = self.decode(z)
         else:
             z = torch.normal(torch.zeros(num_samples, self.encoding_dim))
             samples, _, _ = self.decode(z)
