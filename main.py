@@ -45,7 +45,7 @@ parser.add_argument("--epochs", default=50,
 args = parser.parse_args()
 
 
-def main(args):
+def main():
     # Load data
     if args.dataset == 'MNIST':
         transform = transforms.Compose((
@@ -101,7 +101,7 @@ def main(args):
     # TODO: make sure to save results (tensorboard/ csv)
 
 
-#if __name__ == "__main__":
-main(args)
+if __name__ == "__main__":
+    main()
 
 
