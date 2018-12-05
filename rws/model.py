@@ -22,7 +22,7 @@ class BasicModel(nn.Module):
         self.discrete = discrete
 
         if self.discrete:
-            self.pre_pi = torch.zeros(encoding_dim)
+            self.pre_pi = torch.ones(encoding_dim, requires_grad=True)
 
         # Encoder
         transformation = ACTIVATION_FUNCTIONS[hidden_nonlinearity]
