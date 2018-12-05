@@ -72,7 +72,7 @@ class BasicModel(nn.Module):
         out = self.decoder(sample)
         mu = self.fc_mu_dec(out)
         if self.mode == 'MNIST':
-            mu = F.sigmoid(mu)
+            mu = torch.sigmoid(mu)
             sample = (mu > 0.5).float
             sigma = torch.ones(1)  # pretty useless, just to take the log
         elif self.mode == 'dis-GMM':
