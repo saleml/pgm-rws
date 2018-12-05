@@ -65,7 +65,7 @@ class RWS_1(object):
         log_qs = torch.zeros((input.size()[0], self.K))
 
         for i in range(self.K):
-            log_weight, log_q, log_p = self.get_importance_weight_gauss(mean, logvar, input)
+            log_weight, log_q, log_p = self.get_importance_weight(mean, logvar, input)
             log_weights[:, i] = log_weight
             log_qs[:, i] = log_q
 
