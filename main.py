@@ -24,8 +24,6 @@ parser.add_argument("--encoding-dim", type=int, default=50,
                     help="Number of units in output layer of encoder")
 parser.add_argument("--hidden-nonlinearity", default='tanh',
                     help="Non linearity of the hidden layers")
-parser.add_argument("--decoder-nonlinearity", default='sigmoid',
-                    help="Non linearity of the decoder")
 
 parser.add_argument("--batch-size", type=int, default=128,
                     help="Batch size")
@@ -51,7 +49,7 @@ def main():
 
     # Create model
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
-                       args.hidden_nonlinearity, args.decoder_nonlinearity)
+                       args.hidden_nonlinearity)
 
     # Train model
     if args.algo == 'rws':
