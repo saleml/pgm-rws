@@ -8,7 +8,7 @@ from torch import nn
 from rws.model import BasicModel
 
 
-class RWS_1(object):
+class RWS:
     '''
     INPUT ARGUMENTS
 
@@ -26,7 +26,6 @@ class RWS_1(object):
     '''
 
     def __init__(self, model, optim_recog, optim_model, K=1, mode='MNIST'):
-        super(RWS_1, self).__init__()
         self.model = model
         self.optim_recog = optim_recog
         self.optim_model = optim_model
@@ -44,6 +43,7 @@ class RWS_1(object):
 
         for i in range(self.K):
             log_weight, log_q, log_p = self.get_importance_weight(mean, logvar, input)
+
             log_weights[:, i] = log_weight
             log_ps[:, i] = log_p
 
@@ -109,12 +109,19 @@ class RWS_1(object):
     def get_importance_weight(self, mean, logvar, input):
 
         if self.mode == 'MNIST':
+
             h = Normal(mean, torch.exp(logvar / 2)).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
+            h,x_gh_sample, x_gh_mean, x_gh_sigma, mean, logvar, input = h.squeeze(), x_gh_sample.squeeze(), x_gh_mean.squeeze(), x_gh_sigma.squeeze(), mean.squeeze(), logvar.squeeze(), input.squeeze()
+
 
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
+
+
             log_p_x_gh = torch.sum(input * torch.log(x_gh_mean) + (1 - input) * torch.log(1 - x_gh_mean), -1)
             log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
+
+
         if self.mode == 'dis-GMM':
             h = OneHotCategorical(mean).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
@@ -161,3 +168,24 @@ class RWS_1(object):
         self.optim_recog.step()
 
         return mean, logvar, loss_model, loss_q_wake, loss_q_sleep
+
+    def visu(self, writer,step, args):
+        mean, logvar, loss_model, loss_q_wake, loss_q_sleep = args
+
+        if self.mode == 'MNIST':
+            eps = torch.rand_like(mean)
+            h = mean + eps * torch.exp(logvar / 2)
+            out, _, _ = self.model.decode(eps)
+            out = out.view(mean.size()[0], 1, 28, 28)
+            rec, _,_ = self.model.decode(h)
+            rec = rec.view(mean.size()[0], 1, 28, 28)
+            writer.add_scalars('losses', {'model': loss_model,
+                                          'recognition_sleep': loss_q_sleep,
+                                          'recognition_wake': loss_q_wake}, step)
+            writer.add_image('im_0', out[0], step)
+            writer.add_image('im_1', out[1], step)
+            writer.add_image('rec_0', rec[2], step)
+            writer.add_image('rec_1', rec[3], step)
+
+
+

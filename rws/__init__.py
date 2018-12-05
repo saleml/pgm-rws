@@ -1,2 +1,2 @@
-from .RWS import RWS_1
+from .rws import RWS
 from .vae import Vae

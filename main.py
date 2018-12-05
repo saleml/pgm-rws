@@ -5,7 +5,8 @@ from argparse import ArgumentParser
 from torchvision import datasets, transforms
 import torch
 from functools import partial
-from rws import Vae, RWS_1
+import tensorboardX
+from rws import Vae, RWS
 from torch.optim import Adam
 
 
@@ -29,6 +30,8 @@ def parse_args():
 
     parser.add_argument("--batch-size", type=int, default=128,
                         help="Batch size")
+    parser.add_argument("--K", default=5,
+                        help="number of particles for IWAE and RWS")
 
     parser.add_argument("--dataset", default='MNIST',
                         help="Dataset to use")
@@ -61,24 +64,37 @@ def main():
                        args.hidden_nonlinearity, args.mode)
     optimizer = Adam(model.parameters())
 
+    encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(model.fc_logsigma.parameters())
+    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(model.fc_logsigma_dec.parameters())
+
+    if model.discrete :
+        decoder_params += list(model.pre_pi)
+
+
+    optim_recog = torch.optim.Adam(encoder_params, lr = 1e-3)
+    optim_model = torch.optim.Adam(decoder_params, lr = 1e-3)
+
     # Train model
     if args.algo == 'rws':
-        # TODO
-        pass
+
+        algo = RWS(model,optim_recog, optim_model, K = args.K)
+
     elif args.algo == 'vae':
-        vae = Vae(model, optimizer, args.mode)
-        train_step = vae.train_step
+        algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
         # TODO
         pass
 
+    writer = tensorboardX.SummaryWriter('../logs')
+    step = 0
     for epoch in range(args.epochs):
-        print('Epoch %s' % epoch)
-        for (i, batch) in enumerate(train_loader):
-            data = batch[0]
-            loss = train_step(data)
-            if i % 1000 == 0:
-                print("epoch {}, batch {}, loss {}".format(epoch, i, loss.item()))
+        for batch_idx, (data, target) in enumerate(train_loader):
+
+            args = algo.train_step(data)
+
+            if (batch_idx%10) ==0 :
+                algo.visu(writer, step, args)
+            step +=1
 
     # Evaluate
     # TODO: make sure to save results (tensorboard / csv)
