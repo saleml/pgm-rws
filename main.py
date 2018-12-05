@@ -6,9 +6,11 @@ from argparse import ArgumentParser
 from torchvision import datasets, transforms
 import torch
 from functools import partial
+import tensorboardX
 
 
 # Parse arguments
+
 parser = ArgumentParser()
 parser.add_argument("--algo", default='rws',
                     help="Algorithm to use. rws, vae, or iwae (default: rws)")
@@ -32,21 +34,26 @@ parser.add_argument("--batch-size", type=int, default=128,
 parser.add_argument("--dataset", default='MNIST',
                     help="Dataset to use")
 
-parser.add_argument("--K", default=1,
+parser.add_argument("--K", default=5,
                     help="number of particles for IWAE and RWS")
 
 parser.add_argument("--mode", default='MNIST',
                     help="MNIST, dis-GMM, cont-GMM mode ")
+
+parser.add_argument("--epochs", default=50,
+                    help="number of training epochs ")
 args = parser.parse_args()
 
 
-def main():
+def main(args):
     # Load data
     if args.dataset == 'MNIST':
         transform = transforms.Compose((
             transforms.ToTensor(),
             partial(torch.flatten, start_dim=1),
-            partial(torch.gt, other=0.5))
+            partial(torch.gt, other=0.5),
+            partial(lambda x : x.float()))
+
         )
         dataset = datasets.MNIST('../data', train=True, download=True,
                                  transform=transform)
@@ -59,10 +66,14 @@ def main():
                        args.hidden_nonlinearity)
 
     encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(model.fc_logsigma.parameters())
-    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(model.fc_logsigma_dec.parameters()) + list(model.pre_pi)
+    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(model.fc_logsigma_dec.parameters())
 
-    optim_recog = torch.optim.Adam(encoder_params)
-    optim_model = torch.optim.Adam(decoder_params)
+    if model.discrete :
+        decoder_params += list(model.pre_pi)
+
+
+    optim_recog = torch.optim.Adam(encoder_params, lr = 1e-3)
+    optim_model = torch.optim.Adam(decoder_params, lr = 1e-3)
 
     # Train model
     if args.algo == 'rws':
@@ -70,16 +81,27 @@ def main():
         algo = RWS(model,optim_recog, optim_model, K = args.K)
 
     elif args.algo == 'vae':
-       # update = vae.update
+       update = vae.update
     elif args.algo == 'iwae':
         # TODO
         pass
+
+    writer = tensorboardX.SummaryWriter('/Users/assouel/PycharmProjects/pgm-rws/logs/')
+    step = 0
+    for epoch in range(args.epochs):
+        for batch_idx, (data, target) in enumerate(train_loader):
+
+            args = algo.train_step(data)
+
+            if (batch_idx%10) ==0 :
+                algo.visu(writer, step, args)
+            step +=1
 
     # Evaluate
     # TODO: make sure to save results (tensorboard/ csv)
 
 
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+main(args)
 
 

@@ -69,8 +69,9 @@ class BasicModel(nn.Module):
         out = self.decoder(sample)
         mu = self.fc_mu_dec(out)
         if not self.discrete:
-            sample = F.sigmoid(mu)
-            sigma = None
+            mu = F.sigmoid(mu)
+            sample = (mu > 0.5).float()
+            sigma = torch.ones(1)
         else:
             logsigma = self.fc_logsigma_dec(out)
             sigma = torch.exp(logsigma)
