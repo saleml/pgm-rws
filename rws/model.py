@@ -63,7 +63,7 @@ class BasicModel(nn.Module):
             distrib = OneHotCategorical(probas)
             sample = distrib.sample()
             return sample, probas, _
-        elif self.mode == 'con-GMM':
+        elif self.mode == 'cont-GMM':
             pass
         else:
             raise NotImplementedError('mode not implemented')
@@ -79,7 +79,7 @@ class BasicModel(nn.Module):
             logsigma = self.fc_logsigma_dec(out)
             sigma = torch.exp(logsigma)
             sample = Normal(mu, sigma).sample()
-        elif self.mode == 'con-GMM':
+        elif self.mode == 'cont-GMM':
             pass
         else:
             raise NotImplementedError('mode not implemented')
@@ -100,7 +100,7 @@ class BasicModel(nn.Module):
         elif self.mode == 'dis-GMM':
             z = torch.normal(torch.zeros(num_samples, self.encoding_dim))
             samples, _, _ = self.decode(z)
-        elif self.mode == 'con-GMM':
+        elif self.mode == 'cont-GMM':
             pass
         else:
             raise NotImplementedError('mode not implemented')

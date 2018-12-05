@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 from torchvision import datasets, transforms
 import torch
 from functools import partial
-from vae import Vae
+from rws import Vae, RWS_1
 from torch.optim import Adam
 
 
@@ -45,17 +45,20 @@ def main():
         transform = transforms.Compose((
             transforms.ToTensor(),
             partial(torch.flatten, start_dim=1),
-            partial(torch.gt, other=0.5))
+            partial(torch.gt, other=0.5),
+            partial(lambda x: x.float()))
         )
         dataset = datasets.MNIST('../data', train=True, download=True,
                                  transform=transform)
         input_dim = dataset[0][0].shape[1]
-    train_loader = torch.utils.data.DataLoader(dataset,
-                                               batch_size=args.batch_size, shuffle=True)
+    elif args.dataset == 'GMM':
+        # TODO
+        pass
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     # Create model
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
-                       args.hidden_nonlinearity)
+                       args.hidden_nonlinearity, args.mode)
     optimizer = Adam(model.parameters())
 
     # Train model
@@ -69,14 +72,16 @@ def main():
         # TODO
         pass
 
-    for i in range(args.epochs):
-        print('Epoch %s' %i)
-        for batch in train_loader:
-            data = batch[0].type(torch.FloatTensor)
+    for epoch in range(args.epochs):
+        print('Epoch %s' % epoch)
+        for (i, batch) in enumerate(train_loader):
+            data = batch[0]
             loss = train_step(data)
+            if i % 1000 == 0:
+                print("epoch {}, batch {}, loss {}".format(epoch, i, loss.item()))
 
     # Evaluate
-    # TODO: make sure to save results (tensorboard/ csv)
+    # TODO: make sure to save results (tensorboard / csv)
 
 
 if __name__ == "__main__":
