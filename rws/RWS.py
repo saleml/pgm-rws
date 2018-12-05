@@ -91,7 +91,7 @@ class RWS_1(object):
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
 
         if self.mode == 'dis-GMM':
-            h = OneHotCategorical(self.model.pi)
+            h = OneHotCategorical(self.model.pi).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
             sample, mean, sigma = self.model.encode(x_gh_sample)
 
@@ -109,14 +109,14 @@ class RWS_1(object):
     def get_importance_weight(self, mean, logvar, input):
 
         if self.mode == 'MNIST':
-            h = Normal(mean, torch.exp(logvar / 2))
+            h = Normal(mean, torch.exp(logvar / 2)).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
 
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
             log_p_x_gh = torch.sum(input * torch.log(x_gh_mean) + (1 - input) * torch.log(1 - x_gh_mean), -1)
             log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
         if self.mode == 'dis-GMM':
-            h = OneHotCategorical(mean)
+            h = OneHotCategorical(mean).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
 
             log_q_h_gx = torch.sum(h * torch.log(mean))
@@ -124,7 +124,7 @@ class RWS_1(object):
                 -0.5 * torch.log(x_gh_sigma ** 2) - 0.5 * (x_gh_sigma ** 2) * (input - x_gh_mean) ** 2, -1)
             log_p_h = torch.sum(h * torch.log(self.model.pi), -1)
         if self.mode == 'cont-GMM':
-            h = Normal(mean, torch.exp(logvar / 2))
+            h = Normal(mean, torch.exp(logvar / 2)).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
 
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
