@@ -10,7 +10,7 @@ ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
 
 class BasicModel(nn.Module):
     def __init__(self, input_dim, hidden_dim=200, hidden_layers=2, encoding_dim=50, hidden_nonlinearity='tanh',
-                 discrete=False):
+                 mode='MNIST'):
         super().__init__()
 
         self.input_dim = input_dim
@@ -19,10 +19,9 @@ class BasicModel(nn.Module):
         self.hidden_nonlinearity = hidden_nonlinearity
         self.hidden_layers = hidden_layers
 
-        self.discrete = discrete
+        self.mode = mode
 
-        if self.discrete:
-            self.pre_pi = torch.ones(encoding_dim, requires_grad=True)
+        self.pre_pi = torch.ones(encoding_dim, requires_grad=True)
 
         # Encoder
         transformation = ACTIVATION_FUNCTIONS[hidden_nonlinearity]
@@ -50,7 +49,7 @@ class BasicModel(nn.Module):
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
         mu = self.fc_mu(out)
-        if not self.discrete:
+        if self.mode == 'MNIST':
             logsigma = self.fc_logsigma(out)
             sigma = torch.exp(logsigma)
             if not reparametrize:
@@ -59,22 +58,32 @@ class BasicModel(nn.Module):
                 eps = torch.normal(torch.zeros(mu.size()))
                 sample = torch.sqrt(sigma) * eps + mu
             return sample, mu, sigma
-        else:
+        elif self.mode == 'dis-GMM':
             probas = F.softmax(mu)
             distrib = OneHotCategorical(probas)
             sample = distrib.sample()
             return sample, probas, _
+        elif self.mode == 'con-GMM':
+            pass
+        else:
+            raise NotImplementedError('mode not implemented')
 
     def decode(self, sample):
         out = self.decoder(sample)
         mu = self.fc_mu_dec(out)
-        if not self.discrete:
-            sample = F.sigmoid(mu)
-            sigma = None
-        else:
+        if self.mode == 'MNIST':
+            mu = F.sigmoid(mu)
+            sample = (mu > 0.5).float
+            sigma = torch.ones(1)  # pretty useless, just to take the log
+        elif self.mode == 'dis-GMM':
             logsigma = self.fc_logsigma_dec(out)
             sigma = torch.exp(logsigma)
             sample = Normal(mu, sigma).sample()
+        elif self.mode == 'con-GMM':
+            pass
+        else:
+            raise NotImplementedError('mode not implemented')
+
         return sample, mu, sigma
 
     def forward(self, input, reparametrize=False):
@@ -83,11 +92,16 @@ class BasicModel(nn.Module):
         return (sample, mu, sigma), (p, mu_gen, sigma_gen)
 
     def sample(self, num_samples):
-        if self.discrete:
+        samples = None
+        if self.mode == 'MNIST':
             distrib = OneHotCategorical(self.pi)
             z = distrib.sample((num_samples, ))
             samples, _, _ = self.decode(z)
-        else:
+        elif self.mode == 'dis-GMM':
             z = torch.normal(torch.zeros(num_samples, self.encoding_dim))
             samples, _, _ = self.decode(z)
+        elif self.mode == 'con-GMM':
+            pass
+        else:
+            raise NotImplementedError('mode not implemented')
         return samples
