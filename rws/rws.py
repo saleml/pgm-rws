@@ -109,18 +109,17 @@ class RWS:
     def get_importance_weight(self, mean, logvar, input):
 
         if self.mode == 'MNIST':
-
             h = Normal(mean, torch.exp(logvar / 2)).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
-            h,x_gh_sample, x_gh_mean, x_gh_sigma, mean, logvar, input = h.squeeze(), x_gh_sample.squeeze(), x_gh_mean.squeeze(), x_gh_sigma.squeeze(), mean.squeeze(), logvar.squeeze(), input.squeeze()
-
+            h, x_gh_sample, x_gh_mean, x_gh_sigma, mean, logvar, input = h.squeeze(), x_gh_sample.squeeze(), \
+                                                                         x_gh_mean.squeeze(), x_gh_sigma.squeeze(), \
+                                                                         mean.squeeze(), logvar.squeeze(), \
+                                                                         input.squeeze()
 
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
 
-
             log_p_x_gh = torch.sum(input * torch.log(x_gh_mean) + (1 - input) * torch.log(1 - x_gh_mean), -1)
-            log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
-
+            log_p_h = torch.sum(-0.5 * h ** 2, -1)
 
         if self.mode == 'dis-GMM':
             h = OneHotCategorical(mean).sample()
@@ -137,7 +136,7 @@ class RWS:
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
             log_p_x_gh = torch.sum(
                 -0.5 * torch.log(x_gh_sigma ** 2) - 0.5 * (x_gh_sigma ** 2) * (input - x_gh_mean) ** 2, -1)
-            log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
+            log_p_h = torch.sum(-0.5 * h ** 2, -1)
 
         log_p_x_h = log_p_x_gh + log_p_h
         log_weight = log_p_x_gh + log_p_h - log_q_h_gx
@@ -168,18 +167,19 @@ class RWS:
         self.optim_recog.step()
         if self.mode == 'MNIST':
             return mean, logvar, loss_model, loss_q_wake, loss_q_sleep
-        elif self.mode =='dis-GMM':
+        elif self.mode == 'dis-GMM':
             return loss_model, loss_q_wake, loss_q_sleep
 
-    def visu(self, writer,step, args):
+    def visu(self, writer, step, args, log=True):
         mean, logvar, loss_model, loss_q_wake, loss_q_sleep = args
-
+        if log:
+            print(loss_model, loss_q_wake, loss_q_sleep)
         if self.mode == 'MNIST':
             eps = torch.rand_like(mean)
             h = mean + eps * torch.exp(logvar / 2)
             out, _, _ = self.model.decode(eps)
             out = out.view(mean.size()[0], 1, 28, 28)
-            rec, _,_ = self.model.decode(h)
+            rec, _, _ = self.model.decode(h)
             rec = rec.view(mean.size()[0], 1, 28, 28)
             writer.add_scalars('losses', {'model': loss_model,
                                           'recognition_sleep': loss_q_sleep,
@@ -188,6 +188,3 @@ class RWS:
             writer.add_image('im_1', out[1], step)
             writer.add_image('rec_0', rec[2], step)
             writer.add_image('rec_1', rec[3], step)
-
-
-

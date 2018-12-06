@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal, OneHotCategorical
 from torch.nn import functional as F
+import numpy as np
 
 ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
                         'relu': nn.ReLU(),
@@ -121,7 +122,7 @@ class ToyModel(nn.Module):
 
         self.mode = mode
 
-        self.pre_pi = torch.ones(encoding_dim, requires_grad=True)
+        self.pre_pi = torch.rand(encoding_dim, requires_grad=True)
 
         # Encoder
         transformation = ACTIVATION_FUNCTIONS[hidden_nonlinearity]
@@ -139,9 +140,9 @@ class ToyModel(nn.Module):
             radius = 10.
             # mean = radius [cos (2pi latent / C), sin(2pi latent / C)]
             self.mus = torch.from_numpy(np.array([np.cos(2 * np.pi / C * np.arange(C, dtype=float)),
-                                 np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T)
+                                 np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T).float()
             self.mus *= radius
-            self.sigmas = torch.tensor([1., 3.]).double()
+            self.sigmas = torch.tensor([1., 3.])
 
     @property
     def pi(self):
