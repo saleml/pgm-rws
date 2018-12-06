@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument("--algo", default='rws',
                         help="Algorithm to use. rws, vae, or iwae (default: rws)")
     parser.add_argument("--variance-reduction",
-                        help="Variance reduction technique for inference network gradients var. reduction (default:None)")
+                        help="Var. reduction technique for inference network gradients var. reduction (default:None)")
 
     parser.add_argument("--model", default='basic',
                         help="Architecture to use. basic or double (default: basic)")
@@ -40,8 +40,8 @@ def parse_args():
                         help="Dataset to use")
     parser.add_argument("--epochs", default=100)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
-    parser.add_argument("--RP", default=True, help= 'use RP trick in IWAE or not')
-    parser.add_argument("--d", default=2, help= 'dimension of data in toy gmm')
+    parser.add_argument("--RP", default=True, help='use RP trick in IWAE or not')
+    parser.add_argument("--d", default=2, help='dimension of data in toy gmm')
     args = parser.parse_args()
     return args
 
@@ -61,9 +61,8 @@ def main():
         input_dim = dataset[0][0].shape[1]
         train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     elif args.dataset == 'GMM':
-        train_loader = GMMDataGen(args.d,C=4)
+        train_loader = GMMDataGen(args.d, C=4)
         input_dim = args.d
-
 
     # Create model
 
@@ -73,8 +72,10 @@ def main():
         model = BasicModel(input_dim, 5, 1, train_loader.C,
                            args.hidden_nonlinearity, args.mode)
 
-    encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(model.fc_logsigma.parameters())
-    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(model.fc_logsigma_dec.parameters())
+    encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(
+        model.fc_logvar.parameters())
+    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(
+        model.fc_logvar_dec.parameters())
 
 
     optimizer = Adam(model.parameters(), lr=1e-3)
@@ -86,18 +87,18 @@ def main():
        optimizer = Adam(model.parameters(), lr=1e-3)
 
 
-
-    optim_recog = torch.optim.Adam(encoder_params, lr = 1e-3)
-    optim_model = torch.optim.Adam(decoder_params, lr = 1e-3)
+    optim_recog = torch.optim.Adam(encoder_params, lr=1e-3)
+    optim_model = torch.optim.Adam(decoder_params, lr=1e-3)
 
     # Train model
     if args.algo == 'rws':
-        algo = RWS(model,optim_recog, optim_model, K = args.K,mode =args.mode)
+        algo = RWS(model, optim_recog, optim_model, K=args.K, mode=args.mode)
     elif args.algo == 'vae':
         algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
-        algo = IWAE(model, optimizer,args.K,args.mode,args.RP)
-
+        algo = IWAE(model, optimizer, args.K, args.mode, args.RP)
+    else:
+        raise NotImplementedError('algo not implemented')
 
     writer = tensorboardX.SummaryWriter('./logs/')
     step = 0
@@ -106,24 +107,18 @@ def main():
             for batch_idx, (data, target) in enumerate(train_loader):
                 args = algo.train_step(data)
 
-                if (batch_idx%100) ==0 :
+                if (batch_idx % 100) == 0 :
 
                     algo.visu(writer, step, args)
-                step +=1
+                step += 1
     if args.dataset == 'GMM':
         for step in range(5000):
             data = train_loader.next_batch(1000)
             out = algo.train_step(data)
 
-
-
-
-
-            # Evaluate
+    # Evaluate
     # TODO: make sure to save results (tensorboard / csv)
 
 
 if __name__ == "__main__":
     main()
-
-
