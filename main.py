@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 import torch
 from functools import partial
 import tensorboardX
-from rws import Vae, RWS
+from rws import Vae, RWS, IWAE
 from torch.optim import Adam
 
 
@@ -37,6 +37,7 @@ def parse_args():
                         help="Dataset to use")
     parser.add_argument("--epochs", default=100)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='MNIST')
+    parser.add_argument("--RP", default=True, help= 'use RP trick in IWAE or not')
     args = parser.parse_args()
     return args
 
@@ -62,12 +63,12 @@ def main():
     # Create model
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
                        args.hidden_nonlinearity, args.mode)
-    optimizer = Adam(model.parameters())
+    optimizer = Adam(model.parameters(),lr = 1e-3)
 
     encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(model.fc_logsigma.parameters())
     decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(model.fc_logsigma_dec.parameters())
 
-    if model.discrete :
+    if args.mode == 'dis-GMM' :
         decoder_params += list(model.pre_pi)
 
 
@@ -82,10 +83,10 @@ def main():
     elif args.algo == 'vae':
         algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
-        # TODO
-        pass
+        algo = IWAE(model, optimizer,args.K,args.mode,args.RP)
 
-    writer = tensorboardX.SummaryWriter('../logs')
+
+    writer = tensorboardX.SummaryWriter('./logs/')
     step = 0
     for epoch in range(args.epochs):
         for batch_idx, (data, target) in enumerate(train_loader):
