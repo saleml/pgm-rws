@@ -73,8 +73,11 @@ def main():
 
     encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(
         model.fc_logvar.parameters())
-    decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(
-        model.fc_logvar_dec.parameters())
+    if isinstance(model, BasicModel):
+        decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(
+            model.fc_logvar_dec.parameters())
+    else:
+        decoder_params = []
 
     optimizer = Adam(model.parameters(), lr=1e-3)
 
@@ -97,7 +100,7 @@ def main():
         raise NotImplementedError('algo not implemented')
 
     time_now = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
-    writer = tensorboardX.SummaryWriter('./logs/time_now')
+    writer = tensorboardX.SummaryWriter('./logs/{}'.format(time_now))
     step = 0
     if args.dataset == 'MNIST':
         for epoch in range(args.epochs):
@@ -110,7 +113,8 @@ def main():
     if args.dataset == 'GMM':
         for step in range(5000):
             data = train_loader.next_batch(1000)
-            out = algo.train_step(data)
+            args = algo.train_step(data)
+            print(model.pi)
 
     # Evaluate
     # TODO: make sure to save results (tensorboard / csv)

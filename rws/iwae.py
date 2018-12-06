@@ -117,9 +117,10 @@ class IWAE:
         elif self.mode == 'dis-GMM':
             return loss
 
-    def visu(self, writer, step, args):
+    def visu(self, writer, step, args, log=True):
         mean, logvar, loss = args
-
+        if log:
+            print(loss)
         if self.mode == 'MNIST':
             eps = torch.rand_like(mean)
             h = mean + eps * torch.exp(logvar / 2)
