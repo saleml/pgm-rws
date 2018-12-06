@@ -8,6 +8,9 @@ from functools import partial
 import tensorboardX
 from rws import Vae, RWS, IWAE
 from torch.optim import Adam
+from data.gmm_gen import GMMDataGen
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def parse_args():
@@ -33,11 +36,12 @@ def parse_args():
     parser.add_argument("--K", default=5,
                         help="number of particles for IWAE and RWS")
 
-    parser.add_argument("--dataset", default='MNIST',
+    parser.add_argument("--dataset", default='GMM',
                         help="Dataset to use")
     parser.add_argument("--epochs", default=100)
-    parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='MNIST')
+    parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
     parser.add_argument("--RP", default=True, help='use RP trick in IWAE or not')
+    parser.add_argument("--d", default=2, help='dimension of data in toy gmm')
     args = parser.parse_args()
     return args
 
@@ -55,32 +59,40 @@ def main():
         dataset = datasets.MNIST('../data', train=True, download=True,
                                  transform=transform)
         input_dim = dataset[0][0].shape[1]
+        train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     elif args.dataset == 'GMM':
-        # TODO
-        pass
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+        train_loader = GMMDataGen(args.d, C=4)
+        input_dim = args.d
 
     # Create model
+
     model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
                        args.hidden_nonlinearity, args.mode)
-    optimizer = Adam(model.parameters(), lr=1e-3)
+    if args.dataset == 'GMM':
+        model = BasicModel(input_dim, 5, 1, train_loader.C,
+                           args.hidden_nonlinearity, args.mode)
 
     encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(
         model.fc_logvar.parameters())
     decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(
         model.fc_logvar_dec.parameters())
 
-    if args.mode == 'dis-GMM':
-        decoder_params += list(model.pre_pi)
+
+    optimizer = Adam(model.parameters(), lr=1e-3)
+
+
+    if args.mode == 'dis-GMM' :
+       decoder_params.append(model.pre_pi)
+       list(model.parameters()).append(model.pre_pi)
+       optimizer = Adam(model.parameters(), lr=1e-3)
+
 
     optim_recog = torch.optim.Adam(encoder_params, lr=1e-3)
     optim_model = torch.optim.Adam(decoder_params, lr=1e-3)
 
     # Train model
     if args.algo == 'rws':
-
-        algo = RWS(model, optim_recog, optim_model, K=args.K)
-
+        algo = RWS(model, optim_recog, optim_model, K=args.K, mode=args.mode)
     elif args.algo == 'vae':
         algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
@@ -90,14 +102,19 @@ def main():
 
     writer = tensorboardX.SummaryWriter('./logs/')
     step = 0
-    for epoch in range(args.epochs):
-        for batch_idx, (data, target) in enumerate(train_loader):
+    if args.dataset == 'MNIST':
+        for epoch in range(args.epochs):
+            for batch_idx, (data, target) in enumerate(train_loader):
+                args = algo.train_step(data)
 
-            args = algo.train_step(data)
+                if (batch_idx % 100) == 0 :
 
-            if (batch_idx % 10) == 0:
-                algo.visu(writer, step, args)
-            step += 1
+                    algo.visu(writer, step, args)
+                step += 1
+    if args.dataset == 'GMM':
+        for step in range(5000):
+            data = train_loader.next_batch(1000)
+            out = algo.train_step(data)
 
     # Evaluate
     # TODO: make sure to save results (tensorboard / csv)

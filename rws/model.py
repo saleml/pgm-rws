@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal, OneHotCategorical
 from torch.nn import functional as F
-import numpy as np
 
 ACTIVATION_FUNCTIONS = {'tanh': nn.Tanh(),
                         'relu': nn.ReLU(),
@@ -45,7 +44,7 @@ class BasicModel(nn.Module):
 
     @property
     def pi(self):
-        return F.softmax(self.pre_pi)
+       return F.softmax(self.pre_pi)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
@@ -94,7 +93,7 @@ class BasicModel(nn.Module):
 
     def sample(self, num_samples):
         samples = None
-        if self.mode == 'dis-gmm':
+        if self.mode == 'dis-GMM':
             distrib = OneHotCategorical(self.pi)
             z = distrib.sample((num_samples, ))
             samples, _, _ = self.decode(z)

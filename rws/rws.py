@@ -166,8 +166,10 @@ class RWS:
         loss_q_sleep = self.get_loss_q_sleep_update(mean)
         loss_q_sleep.backward()
         self.optim_recog.step()
-
-        return mean, logvar, loss_model, loss_q_wake, loss_q_sleep
+        if self.mode == 'MNIST':
+            return mean, logvar, loss_model, loss_q_wake, loss_q_sleep
+        elif self.mode =='dis-GMM':
+            return loss_model, loss_q_wake, loss_q_sleep
 
     def visu(self, writer,step, args):
         mean, logvar, loss_model, loss_q_wake, loss_q_sleep = args

@@ -1,5 +1,6 @@
 import numpy as np
 from data.utils import softmax
+import torch
 
 
 class GMMDataGen:
@@ -46,4 +47,19 @@ class GMMDataGen:
             else:
                 raise NotImplementedError("d = {} Not implemented".format(self.d))
             yield x
+
+    def next_batch(self,batch_size):
+        batch = torch.zeros((batch_size,self.d))
+        for i in range(batch_size):
+            z = np.random.choice(np.arange(self.C), p=self.latent_proba)
+            if self.d == 1:
+                x = self.mus[z] + np.sqrt(self.sigmas2[z]) * np.random.randn()
+            elif self.d == 2:
+                x = np.random.multivariate_normal(self.mus[z], self.cov)
+            else:
+                raise NotImplementedError("d = {} Not implemented".format(self.d))
+
+            batch[i,:] = torch.from_numpy(x)
+        return batch
+
 
