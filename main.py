@@ -1,6 +1,6 @@
 '''Main file to be called to train a model with a given algorithm'''
 
-from rws.model import BasicModel
+from rws.model import BasicModel, ToyModel
 from argparse import ArgumentParser
 from torchvision import datasets, transforms
 import torch
@@ -11,6 +11,7 @@ from torch.optim import Adam
 from data.gmm_gen import GMMDataGen
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime
 
 
 def parse_args():
@@ -20,8 +21,6 @@ def parse_args():
     parser.add_argument("--variance-reduction",
                         help="Var. reduction technique for inference network gradients var. reduction (default:None)")
 
-    parser.add_argument("--model", default='basic',
-                        help="Architecture to use. basic or double (default: basic)")
     parser.add_argument("--hidden-dim", type=int, default=200,
                         help="Number of units in hidden layers")
     parser.add_argument("--hidden-layers", type=int, default=2,
@@ -38,6 +37,7 @@ def parse_args():
 
     parser.add_argument("--dataset", default='GMM',
                         help="Dataset to use")
+    parser.add_argument("--C", type=int, default=4, help="Number of GMM classes")
     parser.add_argument("--epochs", default=100)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
     parser.add_argument("--RP", default=True, help='use RP trick in IWAE or not')
@@ -60,32 +60,28 @@ def main():
                                  transform=transform)
         input_dim = dataset[0][0].shape[1]
         train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    elif args.dataset == 'GMM':
-        train_loader = GMMDataGen(args.d, C=4)
-        input_dim = args.d
-
-    # Create model
-
-    model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
-                       args.hidden_nonlinearity, args.mode)
-    if args.dataset == 'GMM':
-        model = BasicModel(input_dim, 5, 1, train_loader.C,
+        model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
                            args.hidden_nonlinearity, args.mode)
+    elif args.dataset == 'GMM':
+        train_loader = GMMDataGen(args.d, C=args.C)
+        input_dim = args.d
+        encoding_dim = args.C
+        model = ToyModel(input_dim, args.hidden_dim, args.hidden_layers, encoding_dim,
+                         args.hidden_nonlinearity, args.mode)
+    else:
+        raise NotImplementedError("dataset doesn't exist")
 
     encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(
         model.fc_logvar.parameters())
     decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(
         model.fc_logvar_dec.parameters())
 
-
     optimizer = Adam(model.parameters(), lr=1e-3)
 
-
-    if args.mode == 'dis-GMM' :
-       decoder_params.append(model.pre_pi)
-       list(model.parameters()).append(model.pre_pi)
-       optimizer = Adam(model.parameters(), lr=1e-3)
-
+    if args.mode == 'dis-GMM':
+        decoder_params.append(model.pre_pi)
+        list(model.parameters()).append(model.pre_pi)
+        optimizer = Adam(model.parameters(), lr=1e-3)
 
     optim_recog = torch.optim.Adam(encoder_params, lr=1e-3)
     optim_model = torch.optim.Adam(decoder_params, lr=1e-3)
@@ -100,15 +96,15 @@ def main():
     else:
         raise NotImplementedError('algo not implemented')
 
-    writer = tensorboardX.SummaryWriter('./logs/')
+    time_now = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
+    writer = tensorboardX.SummaryWriter('./logs/time_now')
     step = 0
     if args.dataset == 'MNIST':
         for epoch in range(args.epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
                 args = algo.train_step(data)
 
-                if (batch_idx % 100) == 0 :
-
+                if (batch_idx % 100) == 0:
                     algo.visu(writer, step, args)
                 step += 1
     if args.dataset == 'GMM':
