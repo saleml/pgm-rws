@@ -44,6 +44,6 @@ class GMMDataGen:
             elif self.d == 2:
                 x = np.random.multivariate_normal(self.mus[z], self.cov)
             else:
-                raise NotImplementedError("d = {} Not implemented".format(d))
+                raise NotImplementedError("d = {} Not implemented".format(self.d))
             yield x
 

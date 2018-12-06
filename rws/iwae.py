@@ -25,9 +25,9 @@ class IWAE:
 
     '''
 
-    def __init__(self, model, optim, K=1, mode='MNIST', RP = False):
+    def __init__(self, model, optim, K=1, mode='MNIST', RP=False):
         self.model = model
-        self.optim= optim
+        self.optim = optim
         self.K = K
         self.mode = mode
         self.RP = RP
@@ -58,28 +58,24 @@ class IWAE:
 
         logs = log_weights - denom_log.unsqueeze(1)
         weights = torch.exp(logs).detach()
-        batch_loss = torch.sum((log_ps -log_qs)* weights, -1)
+        batch_loss = torch.sum((log_ps - log_qs) * weights, -1)
         return -torch.mean(batch_loss)
-
 
     def get_importance_weight(self, mean, logvar, input):
 
         if self.mode == 'MNIST':
-            if not self.RP :
+            if not self.RP:
                 h = Normal(mean, torch.exp(logvar / 2)).sample()
-            if self.RP :
+            if self.RP:
                 eps = Normal(torch.zeros(mean.size()), torch.ones(logvar.size())).sample()
-                h = mean + eps*torch.exp(logvar/2)
+                h = mean + eps * torch.exp(logvar / 2)
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
-            h,x_gh_sample, x_gh_mean, x_gh_sigma, mean, logvar, input = h.squeeze(), x_gh_sample.squeeze(), x_gh_mean.squeeze(), x_gh_sigma.squeeze(), mean.squeeze(), logvar.squeeze(), input.squeeze()
-
+            h, x_gh_sample, x_gh_mean, x_gh_sigma, mean, logvar, input = h.squeeze(), x_gh_sample.squeeze(), x_gh_mean.squeeze(), x_gh_sigma.squeeze(), mean.squeeze(), logvar.squeeze(), input.squeeze()
 
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
 
-
             log_p_x_gh = torch.sum(input * torch.log(x_gh_mean) + (1 - input) * torch.log(1 - x_gh_mean), -1)
             log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
-
 
         if self.mode == 'dis-GMM':
             h = OneHotCategorical(mean).sample()
@@ -116,10 +112,9 @@ class IWAE:
         loss.backward()
         self.optim.step()
 
-
         return mean, logvar, loss
 
-    def visu(self, writer,step, args):
+    def visu(self, writer, step, args):
         mean, logvar, loss = args
 
         if self.mode == 'MNIST':
@@ -127,13 +122,10 @@ class IWAE:
             h = mean + eps * torch.exp(logvar / 2)
             out, _, _ = self.model.decode(eps)
             out = out.view(mean.size()[0], 1, 28, 28)
-            rec, _,_ = self.model.decode(h)
+            rec, _, _ = self.model.decode(h)
             rec = rec.view(mean.size()[0], 1, 28, 28)
             writer.add_scalar('loss', loss, step)
             writer.add_image('im_0', out[0], step)
             writer.add_image('im_1', out[1], step)
             writer.add_image('rec_0', rec[2], step)
             writer.add_image('rec_1', rec[3], step)
-
-
-

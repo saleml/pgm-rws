@@ -4,7 +4,7 @@ import torch
 
 
 def reconstruction_loss(x, reconstruction, *args):
-    return F.binary_cross_entropy(torch.sigmoid(reconstruction), x, reduction='sum')
+    return F.binary_cross_entropy(reconstruction, x, reduction='sum')
 
 
 def normal_pdf_loss(x, mu, sigma, *args):
@@ -23,9 +23,9 @@ class Vae(object):
 
     def train_step(self, x):
         self.optimizer.zero_grad()
-        (sample, mu, sigma), (_, x_mu, x_sigma) = self.model(x)
+        (sample, mu, sigma), (_, x_mu, x_sigma) = self.model(x, reparametrize=True)
         generation = self.loss(x, x_mu, x_sigma)
-        logvar = torch.log(sigma)
+        logvar = 2 * torch.log(sigma)
         variational = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         loss = generation + variational
         loss.backward()
