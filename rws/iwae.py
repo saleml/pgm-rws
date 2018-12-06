@@ -116,8 +116,10 @@ class IWAE:
         loss.backward()
         self.optim.step()
 
-
-        return mean, logvar, loss
+        if self.mode == 'MNIST':
+            return mean, logvar, loss
+        elif self.mode == 'dis-GMM':
+            return loss
 
     def visu(self, writer,step, args):
         mean, logvar, loss = args
