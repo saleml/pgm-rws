@@ -42,9 +42,10 @@ class BasicModel(nn.Module):
         self.fc_mu_dec = nn.Linear(hidden_dim, input_dim)
         self.fc_logsigma_dec = nn.Linear(hidden_dim, input_dim)
 
+
     @property
     def pi(self):
-        return F.softmax(self.pre_pi)
+       return F.softmax(self.pre_pi)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
@@ -62,7 +63,7 @@ class BasicModel(nn.Module):
             probas = F.softmax(mu)
             distrib = OneHotCategorical(probas)
             sample = distrib.sample()
-            return sample, probas, _
+            return sample, probas, torch.ones(1)
         elif self.mode == 'cont-GMM':
             pass
         else:
@@ -93,11 +94,11 @@ class BasicModel(nn.Module):
 
     def sample(self, num_samples):
         samples = None
-        if self.mode == 'MNIST':
+        if self.mode == 'dis-GMM':
             distrib = OneHotCategorical(self.pi)
             z = distrib.sample((num_samples, ))
             samples, _, _ = self.decode(z)
-        elif self.mode == 'dis-GMM':
+        elif self.mode == 'MNIST':
             z = torch.normal(torch.zeros(num_samples, self.encoding_dim))
             samples, _, _ = self.decode(z)
         elif self.mode == 'cont-GMM':
