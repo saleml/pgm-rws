@@ -25,12 +25,13 @@ class IWAE:
 
     '''
 
-    def __init__(self, model, optim, K=1, mode='MNIST', RP=False):
+    def __init__(self, model, optim, K=1, mode='MNIST', RP=False, VR=None):
         self.model = model
         self.optim = optim
         self.K = K
         self.mode = mode
         self.RP = RP
+        self.VR = VR
 
     def forward(self, X):
         (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X)
@@ -59,7 +60,28 @@ class IWAE:
         logs = log_weights - denom_log.unsqueeze(1)
         weights = torch.exp(logs).detach()
         batch_loss = torch.sum((log_ps - log_qs) * weights, -1)
-        return -torch.mean(batch_loss)
+        loss = - torch.mean(batch_loss)
+        reinf_loss = self.get_reinforce_loss(denom_log, log_qs, log_weights, log_w_max)
+        return loss + reinf_loss
+
+    def get_reinforce_loss(self, denom_log, log_qs, log_weights, log_w_max):
+        if self.RP:
+            return 0
+        if self.VR is None:
+            learning_signal = (denom_log - torch.log(torch.tensor(self.K).float())).detach()  # n
+            return - torch.mean(learning_signal * torch.sum(log_qs, 1))
+        if self.VR == 'VIMCO':
+            fake_log_weights = torch.sum(log_weights, 1).unsqueeze(1)
+            fake_log_weights = - (log_weights - fake_log_weights) / (self.K - 1)  # n x k
+            fake_diff = fake_log_weights - log_w_max.unsqueeze(1)  # n x k
+            log_w_bar = torch.transpose(log_weights.repeat((self.K, 1, 1)), 0, 1)  # n x k x k
+            log_w_bar[:, range(self.K), range(self.K)] = fake_log_weights
+            diff_bar = log_w_bar - log_w_max.unsqueeze(1).unsqueeze(1)  # n x k x k
+
+            log_sum_bar = torch.log(torch.sum(torch.exp(diff_bar), 2))  # n x k
+            denom_log_bar = log_sum_bar + log_w_max.unsqueeze(1)  # n x k
+            learning_signal = - (denom_log_bar - denom_log.unsqueeze(1))  # n x k
+            return - torch.mean(torch.sum(log_qs * learning_signal, 1))
 
     def get_importance_weight(self, mean, logvar, input):
 
@@ -117,10 +139,18 @@ class IWAE:
         elif self.mode == 'dis-GMM':
             return loss
 
-    def visu(self, writer, step, args, log=True):
+    def test_step(self, data):
+        with torch.no_grad():
+            sample, mean, logvar, p_sample, p_mu, p_logvar = self.forward(data)
+            loss = self.get_loss(mean, logvar, data)
+
+            if self.mode == 'MNIST':
+                return mean, logvar, p_mu, loss
+            elif self.mode == 'dis-GMM':
+                return loss
+
+    def visu(self, writer, step, args):
         mean, logvar, loss = args
-        if log:
-            print(loss)
         if self.mode == 'MNIST':
             eps = torch.rand_like(mean)
             h = mean + eps * torch.exp(logvar / 2)

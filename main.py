@@ -12,6 +12,7 @@ from data.gmm_gen import GMMDataGen
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
+from torchvision.utils import save_image
 
 
 def parse_args():
@@ -32,15 +33,17 @@ def parse_args():
 
     parser.add_argument("--batch-size", type=int, default=128,
                         help="Batch size")
-    parser.add_argument("--K", default=5,
+    parser.add_argument("--K", type=int, default=5,
                         help="number of particles for IWAE and RWS")
 
     parser.add_argument("--dataset", default='GMM',
                         help="Dataset to use")
     parser.add_argument("--C", type=int, default=4, help="Number of GMM classes")
-    parser.add_argument("--epochs", default=100)
+    parser.add_argument("--epochs", default=10)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
-    parser.add_argument("--RP", default=True, help='use RP trick in IWAE or not')
+    parser.add_argument('--no-RP', action='store_true', default=False,
+                        help='reparametrization trick')
+    parser.add_argument("--VR", default=None, help='variance reduction')
     parser.add_argument("--d", default=2, help='dimension of data in toy gmm')
     args = parser.parse_args()
     return args
@@ -58,16 +61,24 @@ def main():
         )
         dataset = datasets.MNIST('../data', train=True, download=True,
                                  transform=transform)
+
         input_dim = dataset[0][0].shape[1]
         train_loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
         model = BasicModel(input_dim, args.hidden_dim, args.hidden_layers, args.encoding_dim,
                            args.hidden_nonlinearity, args.mode)
+
+        test_loader = torch.utils.data.DataLoader(
+            datasets.MNIST('../data', train=False, transform=transform),
+            batch_size=args.batch_size, shuffle=True)
+
     elif args.dataset == 'GMM':
         train_loader = GMMDataGen(args.d, C=args.C)
         input_dim = args.d
         encoding_dim = args.C
         model = ToyModel(input_dim, args.hidden_dim, args.hidden_layers, encoding_dim,
                          args.hidden_nonlinearity, args.mode)
+
+        test_loader = None
     else:
         raise NotImplementedError("dataset doesn't exist")
 
@@ -83,8 +94,7 @@ def main():
 
     if args.mode == 'dis-GMM':
         decoder_params.append(model.pre_pi)
-        list(model.parameters()).append(model.pre_pi)
-        optimizer = Adam(model.parameters(), lr=1e-3)
+        optimizer = Adam(list(model.parameters()) + [model.pre_pi], lr=1e-3)
 
     optim_recog = torch.optim.Adam(encoder_params, lr=1e-3)
     optim_model = torch.optim.Adam(decoder_params, lr=1e-3)
@@ -95,7 +105,7 @@ def main():
     elif args.algo == 'vae':
         algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
-        algo = IWAE(model, optimizer, args.K, args.mode, args.RP)
+        algo = IWAE(model, optimizer, args.K, args.mode, not args.no_RP, args.VR)
     else:
         raise NotImplementedError('algo not implemented')
 
@@ -104,17 +114,46 @@ def main():
     step = 0
     if args.dataset == 'MNIST':
         for epoch in range(args.epochs):
+            train_loss = 0.
             for batch_idx, (data, target) in enumerate(train_loader):
-                args = algo.train_step(data)
-
+                out = algo.train_step(data)
+                _, _, loss = out
+                train_loss += loss.item() * args.batch_size
                 if (batch_idx % 100) == 0:
-                    algo.visu(writer, step, args)
+                    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        epoch, batch_idx * len(data), len(train_loader.dataset),
+                               100. * batch_idx / len(train_loader),
+                               loss.item()))
+                    algo.visu(writer, step, out)
                 step += 1
+
+            print('====> Epoch: {} Average loss: {:.4f}'.format(
+                epoch, train_loss / len(train_loader.dataset)))
+
+            # save some images, and do tests
+            test_loss = 0.
+            for batch_idx, (data, target) in enumerate(test_loader):
+                _, _, recon, loss = algo.test_step(data)
+                test_loss += loss.item() * args.batch_size
+                if batch_idx == 0:
+                    n = min(data.size(0), 8)
+                    comparison = torch.cat([data.view(args.batch_size, 1, 28, 28)[:n],
+                                            recon.view(args.batch_size, 1, 28, 28)[:n]])
+                    save_image(comparison,
+                               './results/reconstruction_' + str(epoch) + '.png', nrow=n)
+
+            print('====> Test set loss: {:.4f}'.format(test_loss / len(test_loader.dataset)))
+
+            with torch.no_grad():
+                samples = model.sample(64)
+                save_image(samples.view(64, 1, 28, 28),
+                           'results/sample_' + str(epoch) + '.png')
+
     if args.dataset == 'GMM':
         for step in range(5000):
             data = train_loader.next_batch(1000)
-            args = algo.train_step(data)
-            print(model.pi)
+            loss = algo.train_step(data)
+            print(loss.item(), model.pi)
 
     # Evaluate
     # TODO: make sure to save results (tensorboard / csv)
