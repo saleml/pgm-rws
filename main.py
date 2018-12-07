@@ -83,8 +83,7 @@ def main():
 
     if args.mode == 'dis-GMM':
         decoder_params.append(model.pre_pi)
-        list(model.parameters()).append(model.pre_pi)
-        optimizer = Adam(model.parameters(), lr=1e-3)
+        optimizer = Adam(list(model.parameters()) + [model.pre_pi], lr=1e-3)
 
     optim_recog = torch.optim.Adam(encoder_params, lr=1e-3)
     optim_model = torch.optim.Adam(decoder_params, lr=1e-3)
