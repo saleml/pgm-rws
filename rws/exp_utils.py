@@ -37,7 +37,6 @@ class exp:
             q_z_gx = torch.exp(log_q_h_gx)
 
             for i in range(C):
-
                 probas = torch.eye(C)[i,:]
                 h = OneHotCategorical(probas).sample((data.size()[0],))
                 x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
