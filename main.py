@@ -112,8 +112,8 @@ def main():
     if args.dataset == 'GMM':
         for step in range(5000):
             data = train_loader.next_batch(1000)
-            args = algo.train_step(data)
-            print(model.pi)
+            loss = algo.train_step(data)
+            print(loss.item(), model.pi)
 
     # Evaluate
     # TODO: make sure to save results (tensorboard / csv)
