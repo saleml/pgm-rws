@@ -45,7 +45,7 @@ class BasicModel(nn.Module):
 
     @property
     def pi(self):
-       return F.softmax(self.pre_pi)
+        return F.softmax(self.pre_pi)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
@@ -81,7 +81,7 @@ class BasicModel(nn.Module):
             sigma = torch.exp(logvar / 2.)
             sample = Normal(mu, sigma).sample()
         elif self.mode == 'cont-GMM':
-            sigma = None   # TODO
+            sigma = None  # TODO
         else:
             raise NotImplementedError('mode not implemented')
 
@@ -96,7 +96,7 @@ class BasicModel(nn.Module):
         samples = None
         if self.mode == 'dis-GMM':
             distrib = OneHotCategorical(self.pi)
-            z = distrib.sample((num_samples, ))
+            z = distrib.sample((num_samples,))
             samples, _, _ = self.decode(z)
         elif self.mode == 'MNIST':
             z = torch.normal(torch.zeros(num_samples, self.encoding_dim))
@@ -110,6 +110,7 @@ class BasicModel(nn.Module):
 
 class ToyModel(nn.Module):
     """Only for 2d GMM now"""
+
     def __init__(self, input_dim, hidden_dim=200, hidden_layers=2, encoding_dim=50, hidden_nonlinearity='tanh',
                  mode='dis-GMM', mus=None, sigmas=None):
         super().__init__()
@@ -140,7 +141,7 @@ class ToyModel(nn.Module):
             radius = 10.
             # mean = radius [cos (2pi latent / C), sin(2pi latent / C)]
             self.mus = torch.from_numpy(np.array([np.cos(2 * np.pi / C * np.arange(C, dtype=float)),
-                                 np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T).float()
+                                                  np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T).float()
             self.mus *= radius
             self.sigmas = torch.tensor([1., 3.])
 
@@ -167,7 +168,7 @@ class ToyModel(nn.Module):
             sigma = self.sigmas
             sample = Normal(mu, sigma).sample()
         elif self.mode == 'cont-GMM':
-            sigma = None   # TODO
+            sigma = None  # TODO
         else:
             raise NotImplementedError('mode not implemented')
 
@@ -180,12 +181,10 @@ class ToyModel(nn.Module):
 
     def sample(self, num_samples):
         samples = None
-
         if self.mode == 'dis-GMM':
             distrib = OneHotCategorical(self.pi)
-            z = distrib.sample((num_samples, ))
+            z = distrib.sample((num_samples,))
             samples, _, _ = self.decode(z)
-
         elif self.mode == 'cont-GMM':
             pass
         else:
