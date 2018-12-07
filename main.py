@@ -32,13 +32,13 @@ def parse_args():
 
     parser.add_argument("--batch-size", type=int, default=128,
                         help="Batch size")
-    parser.add_argument("--K", default=5,
+    parser.add_argument("--K", type=int, default=5,
                         help="number of particles for IWAE and RWS")
 
     parser.add_argument("--dataset", default='GMM',
                         help="Dataset to use")
     parser.add_argument("--C", type=int, default=4, help="Number of GMM classes")
-    parser.add_argument("--epochs", default=100)
+    parser.add_argument("--epochs", default=10)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
     parser.add_argument("--RP", default=True, help='use RP trick in IWAE or not')
     parser.add_argument("--d", default=2, help='dimension of data in toy gmm')
