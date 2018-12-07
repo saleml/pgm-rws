@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 import torch
 from functools import partial
 import tensorboardX
-from rws import Vae, RWS, IWAE
+from rws import Vae, RWS, IWAE, exp
 from torch.optim import Adam
 from data.gmm_gen import GMMDataGen
 import numpy as np
@@ -15,9 +15,10 @@ import datetime
 from torchvision.utils import save_image
 
 
+
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument("--algo", default='rws',
+    parser.add_argument("--algo", default='iwae',
                         help="Algorithm to use. rws, vae, or iwae (default: rws)")
     parser.add_argument("--variance-reduction",
                         help="Var. reduction technique for inference network gradients var. reduction (default:None)")
@@ -85,6 +86,7 @@ def main():
     encoder_params = list(model.encoder.parameters()) + list(model.fc_mu.parameters()) + list(
         model.fc_logvar.parameters())
     if isinstance(model, BasicModel):
+
         decoder_params = list(model.decoder.parameters()) + list(model.fc_mu_dec.parameters()) + list(
             model.fc_logvar_dec.parameters())
     else:
@@ -112,6 +114,7 @@ def main():
     time_now = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
     writer = tensorboardX.SummaryWriter('./logs/{}'.format(time_now))
     step = 0
+    exp_ = exp(train_loader,model)
     if args.dataset == 'MNIST':
         for epoch in range(args.epochs):
             train_loss = 0.

@@ -34,7 +34,7 @@ class IWAE:
         self.VR = VR
 
     def forward(self, X):
-        (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X)
+        (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X, reparametrize =self.RP)
         return sample, mu, 2 * torch.log(sigma), model_sample, model_mu, 2 * torch.log(model_sigma)
 
     def get_loss(self, mean, logvar, input):
@@ -82,6 +82,31 @@ class IWAE:
             denom_log_bar = log_sum_bar + log_w_max.unsqueeze(1)  # n x k
             learning_signal = - (denom_log_bar - denom_log.unsqueeze(1))  # n x k
             return - torch.mean(torch.sum(log_qs * learning_signal, 1))
+
+    def get_nll(self,  input, K):
+        sample, mean, logvar, _, _,_  = self.forward(input)
+        log_weights = torch.zeros((input.size()[0], K))
+        log_ps = torch.zeros((input.size()[0],K))
+        log_qs = torch.zeros((input.size()[0], K))
+
+        for i in range(K):
+            log_weight, log_q, log_p = self.get_importance_weight(mean, logvar, input)
+
+            log_weights[:, i] = log_weight
+            log_ps[:, i] = log_p
+            log_qs[:, i] = log_q
+
+        log_w_max, _ = torch.max(log_weights, 1)
+
+        diff = log_weights - log_w_max.unsqueeze(1)
+
+        log_sum = torch.log(torch.sum(torch.exp(diff), 1))
+        denom_log = log_w_max + log_sum
+
+        logs = log_weights - denom_log.unsqueeze(1)
+        weights = torch.exp(logs).detach()
+        batch_loss = torch.sum((log_ps - log_qs) * weights, -1)
+        return -torch.mean(batch_loss)
 
     def get_importance_weight(self, mean, logvar, input):
 
