@@ -163,7 +163,7 @@ class ToyModel(nn.Module):
 
     def decode(self, sample):
         if self.mode == 'dis-GMM':
-            mu = self.mus[torch.argmax(sample)]
+            mu = self.mus[torch.argmax(sample, 1)]
             sigma = self.sigmas
             sample = Normal(mu, sigma).sample()
         elif self.mode == 'cont-GMM':
@@ -180,10 +180,12 @@ class ToyModel(nn.Module):
 
     def sample(self, num_samples):
         samples = None
-        if self.mode == 'dis-gmm':
+
+        if self.mode == 'dis-GMM':
             distrib = OneHotCategorical(self.pi)
             z = distrib.sample((num_samples, ))
             samples, _, _ = self.decode(z)
+
         elif self.mode == 'cont-GMM':
             pass
         else:
