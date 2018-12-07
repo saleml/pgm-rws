@@ -67,7 +67,9 @@ class IWAE:
     def get_reinforce_loss(self, denom_log, log_qs, log_weights, log_w_max):
         if self.RP:
             return 0
-        learning_signal = (denom_log - torch.log(torch.tensor(self.K).float())).detach().unsqueeze(1)  # n x 1
+        if self.VR is None:
+            learning_signal = (denom_log - torch.log(torch.tensor(self.K).float())).detach()  # n
+            return - torch.mean(learning_signal * torch.sum(log_qs, 1))
         if self.VR == 'VIMCO':
             fake_log_weights = torch.sum(log_weights, 1).unsqueeze(1)
             fake_log_weights = - (log_weights - fake_log_weights) / (self.K - 1)  # n x k
@@ -79,8 +81,7 @@ class IWAE:
             log_sum_bar = torch.log(torch.sum(torch.exp(diff_bar), 2))  # n x k
             denom_log_bar = log_sum_bar + log_w_max.unsqueeze(1)  # n x k
             learning_signal = - (denom_log_bar - denom_log.unsqueeze(1))  # n x k
-
-        return - torch.mean(torch.sum(log_qs * learning_signal, 1))
+            return - torch.mean(torch.sum(log_qs * learning_signal, 1))
 
     def get_importance_weight(self, mean, logvar, input):
 

@@ -41,7 +41,9 @@ def parse_args():
     parser.add_argument("--C", type=int, default=4, help="Number of GMM classes")
     parser.add_argument("--epochs", default=10)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
-    parser.add_argument("--RP", default=True, help='use RP trick in IWAE or not')
+    parser.add_argument('--no-RP', action='store_true', default=False,
+                        help='reparametrization trick')
+    parser.add_argument("--VR", default=None, help='variance reduction')
     parser.add_argument("--d", default=2, help='dimension of data in toy gmm')
     args = parser.parse_args()
     return args
@@ -103,7 +105,7 @@ def main():
     elif args.algo == 'vae':
         algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
-        algo = IWAE(model, optimizer, args.K, args.mode, args.RP)
+        algo = IWAE(model, optimizer, args.K, args.mode, not args.no_RP, args.VR)
     else:
         raise NotImplementedError('algo not implemented')
 
@@ -144,7 +146,6 @@ def main():
 
             with torch.no_grad():
                 samples = model.sample(64)
-                print(samples.shape)
                 save_image(samples.view(64, 1, 28, 28),
                            'results/sample_' + str(epoch) + '.png')
 
