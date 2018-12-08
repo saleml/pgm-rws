@@ -35,7 +35,7 @@ class IWAE(BaseAlgo):
         self.VR = VR
 
     def forward(self, X):
-        (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X)
+        (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X, reparametrize=self.RP)
         return sample, mu, 2 * torch.log(sigma), model_sample, model_mu, 2 * torch.log(model_sigma)
 
     def get_loss(self, mean, logvar, input):
@@ -103,7 +103,7 @@ class IWAE(BaseAlgo):
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
 
             log_p_x_gh = torch.sum(input * torch.log(x_gh_mean) + (1 - input) * torch.log(1 - x_gh_mean), -1)
-            log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
+            log_p_h = torch.sum(-0.5 * h ** 2, -1)
 
         elif self.mode == 'dis-GMM':
             h = OneHotCategorical(mean).sample()
