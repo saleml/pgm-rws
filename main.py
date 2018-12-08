@@ -42,6 +42,7 @@ def parse_args():
                         help='reparametrization trick')
     parser.add_argument("--VR", default=None, help='variance reduction')
     parser.add_argument("--d", default=2, help='dimension of data in toy gmm')
+    parser.add_argument("--no-mu", action='store_true', default=False, help="learn mu in GMM")
     args = parser.parse_args()
     return args
 
@@ -74,7 +75,7 @@ def main():
         input_dim = args.d
         encoding_dim = args.C
         model = ToyModel(input_dim, args.hidden_dim, args.hidden_layers, encoding_dim,
-                         args.hidden_nonlinearity, args.mode)
+                         args.hidden_nonlinearity, args.mode, not args.no_mu)
 
     else:
         raise NotImplementedError("dataset doesn't exist")
@@ -91,7 +92,11 @@ def main():
 
     if args.mode == 'dis-GMM':
         decoder_params.append(model.pre_pi)
-        optimizer = Adam(list(model.parameters()) + [model.pre_pi], lr=1e-3)
+        if not args.no_mu:
+            decoder_params.append(model.mus)
+            optimizer = Adam(list(model.parameters()) + [model.pre_pi, model.mus], lr=1e-3)
+        else:
+            optimizer = Adam(list(model.parameters()) + [model.pre_pi], lr=1e-3)
 
     optim_recog = torch.optim.Adam(encoder_params, lr=1e-3)
     optim_model = torch.optim.Adam(decoder_params, lr=1e-3)
