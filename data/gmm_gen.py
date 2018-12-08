@@ -16,7 +16,7 @@ class GMMDataGen:
         self.C = C
 
         # Sample the latent from a softmax distribution parametrized with [6, 7, ..., C+5]
-        self.theta = np.log(6 + np.arange(C, dtype=float))
+        self.theta = np.log(1 + np.arange(C, dtype=float))
         self.latent_proba = softmax(self.theta)
 
         if d == 1:

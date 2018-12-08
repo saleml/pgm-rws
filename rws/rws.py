@@ -36,6 +36,31 @@ class RWS(BaseAlgo):
         (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X)
         return sample, mu, 2 * torch.log(sigma), model_sample, model_mu, 2 * torch.log(model_sigma)
 
+    def get_nll(self, input, K):
+        sample, mean, logvar, _, _, _ = self.forward(input)
+        log_weights = torch.zeros((input.size()[0], K))
+        log_ps = torch.zeros((input.size()[0],K))
+        log_qs = torch.zeros((input.size()[0], K))
+
+        for i in range(K):
+            log_weight, log_q, log_p = self.get_importance_weight(mean, logvar, input)
+
+            log_weights[:, i] = log_weight
+            log_ps[:, i] = log_p
+            log_qs[:, i] = log_q
+
+        log_w_max, _ = torch.max(log_weights, 1)
+
+        diff = log_weights - log_w_max.unsqueeze(1)
+
+        log_sum = torch.log(torch.sum(torch.exp(diff), 1))
+        denom_log = log_w_max + log_sum
+
+        logs = log_weights - denom_log.unsqueeze(1)
+        weights = torch.exp(logs).detach()
+        batch_loss = torch.sum((log_ps - log_qs) * weights, -1)
+        return -torch.mean(batch_loss)
+
     def get_loss_p_update(self, mean, logvar, input):
 
         log_weights = torch.zeros((input.size()[0], self.K))
@@ -87,21 +112,18 @@ class RWS(BaseAlgo):
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
             sample, mean, sigma = self.model.encode(x_gh_sample)
             logvar = 2 * torch.log(sigma)
-
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
 
         if self.mode == 'dis-GMM':
             h = OneHotCategorical(self.model.pi).sample((mean.shape[0], ))
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
             sample, mean, sigma = self.model.encode(x_gh_sample)
-
             log_q_h_gx = torch.sum(h * torch.log(mean))
 
         if self.mode == 'cont-GMM':
             h = torch.rand_like(mean)
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
             sample, mean, sigma = self.model.encode(x_gh_sample)
-
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
 
         return -torch.mean(log_q_h_gx)

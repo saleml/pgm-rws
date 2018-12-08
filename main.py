@@ -6,7 +6,7 @@ from torchvision import datasets, transforms
 import torch
 from functools import partial
 import tensorboardX
-from rws import Vae, RWS, IWAE
+from rws import Vae, RWS, IWAE, exp
 from torch.optim import Adam
 from data.gmm_gen import GMMDataGen
 import numpy as np
@@ -16,7 +16,7 @@ import datetime
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument("--algo", default='rws',
+    parser.add_argument("--algo", default='iwae',
                         help="Algorithm to use. rws, vae, or iwae (default: rws)")
 
     parser.add_argument("--hidden-dim", type=int, default=200,
@@ -116,8 +116,8 @@ def main():
 
     writer = tensorboardX.SummaryWriter('./logs_{}/{}'.format(args.dataset, time_now))
 
+    exp_ = exp(train_loader,model)
     if args.dataset == 'MNIST':
-
         for epoch in range(args.epochs):
             algo.train_loss = 0.
             for batch_idx, (data, target) in enumerate(train_loader):
