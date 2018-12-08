@@ -114,7 +114,8 @@ def main():
     time_now = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
     step = 0
 
-    writer = tensorboardX.SummaryWriter('./logs_{}/{}'.format(args.dataset, time_now))
+    writer = tensorboardX.SummaryWriter('./logs_{}/{}_{}_C{}_K{}_{}'.format(args.dataset, args.algo, args.VR,
+                                                                         args.C, args.K, time_now))
 
     exp_ = exp(train_loader,model)
     if args.dataset == 'MNIST':
