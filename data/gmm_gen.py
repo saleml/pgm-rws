@@ -29,8 +29,8 @@ class GMMDataGen:
             if cov_diag is None:
                 cov_diag = [1., 3.]
             # mean = radius [cos (2pi latent / C), sin(2pi latent / C)]
-            self.mus = np.array([np.cos(2 * np.pi/C * np.arange(C, dtype=float)),
-                                 np.sin(2 * np.pi/C * np.arange(C, dtype=float))]).T
+            self.mus = np.array([np.cos(2 * np.pi / C * np.arange(C, dtype=float)),
+                                 np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T
             self.mus *= radius
             self.cov = np.eye(2) * cov_diag
 
@@ -41,25 +41,23 @@ class GMMDataGen:
         for _ in range(num_samples):
             z = np.random.choice(np.arange(self.C), p=self.latent_proba)
             if self.d == 1:
-                x = self.mus[z] + np.sqrt(self.sigmas2[z]) * np.random.randn()
+                x = self.mus[z] + self.std * np.random.randn()
             elif self.d == 2:
                 x = np.random.multivariate_normal(self.mus[z], self.cov)
             else:
                 raise NotImplementedError("d = {} Not implemented".format(self.d))
             yield x
 
-    def next_batch(self,batch_size):
-        batch = torch.zeros((batch_size,self.d))
+    def next_batch(self, batch_size):
+        batch = torch.zeros((batch_size, self.d))
         for i in range(batch_size):
             z = np.random.choice(np.arange(self.C), p=self.latent_proba)
             if self.d == 1:
-                x = self.mus[z] + np.sqrt(self.sigmas2[z]) * np.random.randn()
+                x = self.mus[z] + self.std * np.random.randn()
             elif self.d == 2:
                 x = np.random.multivariate_normal(self.mus[z], self.cov)
             else:
                 raise NotImplementedError("d = {} Not implemented".format(self.d))
 
-            batch[i,:] = torch.from_numpy(x)
+            batch[i, :] = torch.from_numpy(x)
         return batch
-
-
