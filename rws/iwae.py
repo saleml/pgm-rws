@@ -1,6 +1,8 @@
 import torch
 from torch.distributions import Normal
 from torch.distributions.one_hot_categorical import OneHotCategorical
+from .basealgo import BaseAlgo
+
 import numpy as np
 
 from torch import nn
@@ -8,7 +10,7 @@ from torch import nn
 from rws.model import BasicModel
 
 
-class IWAE:
+class IWAE(BaseAlgo):
     '''
     INPUT ARGUMENTS
 
@@ -26,10 +28,9 @@ class IWAE:
     '''
 
     def __init__(self, model, optim, K=1, mode='MNIST', RP=False, VR=None):
-        self.model = model
+        super().__init__(model, mode)
         self.optim = optim
         self.K = K
-        self.mode = mode
         self.RP = RP
         self.VR = VR
 
@@ -61,27 +62,32 @@ class IWAE:
         weights = torch.exp(logs).detach()
         batch_loss = torch.sum((log_ps - log_qs) * weights, -1)
         loss = - torch.mean(batch_loss)
-        reinf_loss = self.get_reinforce_loss(denom_log, log_qs, log_weights, log_w_max)
+        reinf_loss = self.get_reinforce_loss(denom_log, log_qs, log_weights)
         return loss + reinf_loss
 
-    def get_reinforce_loss(self, denom_log, log_qs, log_weights, log_w_max):
+    def get_reinforce_loss(self, denom_log, log_qs, log_weights):
         if self.RP:
             return 0
         if self.VR is None:
             learning_signal = (denom_log - torch.log(torch.tensor(self.K).float())).detach()  # n
             return - torch.mean(learning_signal * torch.sum(log_qs, 1))
-        if self.VR == 'VIMCO':
+        elif self.VR == 'VIMCO':
             fake_log_weights = torch.sum(log_weights, 1).unsqueeze(1)
             fake_log_weights = - (log_weights - fake_log_weights) / (self.K - 1)  # n x k
-            fake_diff = fake_log_weights - log_w_max.unsqueeze(1)  # n x k
+
             log_w_bar = torch.transpose(log_weights.repeat((self.K, 1, 1)), 0, 1)  # n x k x k
             log_w_bar[:, range(self.K), range(self.K)] = fake_log_weights
-            diff_bar = log_w_bar - log_w_max.unsqueeze(1).unsqueeze(1)  # n x k x k
 
+            log_w_bar_max, _ = torch.max(log_w_bar, 2)  # n x k
+            diff_bar = log_w_bar - torch.transpose(log_w_bar_max.unsqueeze(1), 1, 2)  # n x k x k
             log_sum_bar = torch.log(torch.sum(torch.exp(diff_bar), 2))  # n x k
-            denom_log_bar = log_sum_bar + log_w_max.unsqueeze(1)  # n x k
-            learning_signal = - (denom_log_bar - denom_log.unsqueeze(1))  # n x k
+            denom_log_bar = log_sum_bar + log_w_bar_max  # n x k
+
+            learning_signal = - (denom_log_bar - denom_log.unsqueeze(1)).detach()  # n x k
+
             return - torch.mean(torch.sum(log_qs * learning_signal, 1))
+        else:
+            raise NotImplementedError('not implemented')
 
     def get_importance_weight(self, mean, logvar, input):
 
@@ -99,7 +105,7 @@ class IWAE:
             log_p_x_gh = torch.sum(input * torch.log(x_gh_mean) + (1 - input) * torch.log(1 - x_gh_mean), -1)
             log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
 
-        if self.mode == 'dis-GMM':
+        elif self.mode == 'dis-GMM':
             h = OneHotCategorical(mean).sample()
             x_gh_sample, x_gh_mean, x_gh_sigma = self.model.decode(h)
 
@@ -107,7 +113,7 @@ class IWAE:
             log_p_x_gh = torch.sum(
                 -0.5 * torch.log(x_gh_sigma ** 2) - 0.5 * (x_gh_sigma ** 2) * (input - x_gh_mean) ** 2, -1)
             log_p_h = torch.sum(h * torch.log(self.model.pi), -1)
-        if self.mode == 'cont-GMM':
+        elif self.mode == 'cont-GMM':
             if not self.RP:
                 h = Normal(mean, torch.exp(logvar / 2)).sample()
             if self.RP:
@@ -118,7 +124,10 @@ class IWAE:
             log_q_h_gx = torch.sum(-0.5 * logvar - 0.5 * torch.exp(-logvar) * (h - mean) ** 2, -1)
             log_p_x_gh = torch.sum(
                 -0.5 * torch.log(x_gh_sigma ** 2) - 0.5 * (x_gh_sigma ** 2) * (input - x_gh_mean) ** 2, -1)
-            log_p_h = torch.sum(-0.5 * (h) ** 2, -1)
+            log_p_h = torch.sum(-0.5 * h ** 2, -1)
+
+        else:
+            raise NotImplementedError('Not implemented')
 
         log_p_x_h = log_p_x_gh + log_p_h
         log_weight = log_p_x_gh + log_p_h - log_q_h_gx
@@ -126,7 +135,6 @@ class IWAE:
         return log_weight, log_q_h_gx, log_p_x_h
 
     def train_step(self, data):
-
         # model update
         sample, mean, logvar, p_sample, p_mu, p_logvar = self.forward(data)
         loss = self.get_loss(mean, logvar, data)
@@ -134,32 +142,11 @@ class IWAE:
         loss.backward()
         self.optim.step()
 
-        if self.mode == 'MNIST':
-            return mean, logvar, loss
-        elif self.mode == 'dis-GMM':
-            return loss
+        return mean, logvar, loss
 
     def test_step(self, data):
         with torch.no_grad():
             sample, mean, logvar, p_sample, p_mu, p_logvar = self.forward(data)
             loss = self.get_loss(mean, logvar, data)
 
-            if self.mode == 'MNIST':
-                return mean, logvar, p_mu, loss
-            elif self.mode == 'dis-GMM':
-                return loss
-
-    def visu(self, writer, step, args):
-        mean, logvar, loss = args
-        if self.mode == 'MNIST':
-            eps = torch.rand_like(mean)
-            h = mean + eps * torch.exp(logvar / 2)
-            out, _, _ = self.model.decode(eps)
-            out = out.view(mean.size()[0], 1, 28, 28)
-            rec, _, _ = self.model.decode(h)
-            rec = rec.view(mean.size()[0], 1, 28, 28)
-            writer.add_scalar('loss', loss, step)
-            writer.add_image('im_0', out[0], step)
-            writer.add_image('im_1', out[1], step)
-            writer.add_image('rec_0', rec[2], step)
-            writer.add_image('rec_1', rec[3], step)
+            return mean, logvar, p_mu, loss
