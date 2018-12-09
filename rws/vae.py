@@ -1,22 +1,14 @@
+# Some of this code is inspired by pytorch examples
+
 import torch.nn.functional as F
-from torch.distributions import multivariate_normal
 import torch
+from .basealgo import BaseAlgo
 
 
-def reconstruction_loss(x, reconstruction, *args):
-    return F.binary_cross_entropy(reconstruction, x, reduction='sum')
-
-
-def normal_pdf_loss(x, mu, sigma, *args):
-    normal = multivariate_normal(mu, sigma)
-    return normal(x).sum()
-
-
-class Vae(object):
+class Vae(BaseAlgo):
     def __init__(self, model, optimizer, mode='MNIST', RP=True):
-        self.model = model
+        super().__init__(model, mode)
         self.optimizer = optimizer
-        self.mode = mode
         self.RP = RP
 
     def forward(self, X):
@@ -39,33 +31,12 @@ class Vae(object):
         loss.backward()
         self.optimizer.step()
 
-        if self.mode == 'MNIST':
-            return mean, logvar, loss
-        elif self.mode == 'dis-GMM':
-            return loss
+        return mean, logvar, loss
 
     def test_step(self, data):
         with torch.no_grad():
             sample, mean, logvar, p_sample, p_mu, p_logvar = self.forward(data)
             loss = self.get_loss(p_mu, mean, logvar, data)
 
-            if self.mode == 'MNIST':
-                return mean, logvar, p_mu, loss
-            elif self.mode == 'dis-GMM':
-                return loss
-
-    def visu(self, writer, step, args):
-        mean, logvar, loss = args
-        if self.mode == 'MNIST':
-            eps = torch.rand_like(mean)
-            h = mean + eps * torch.exp(logvar / 2)
-            out, _, _ = self.model.decode(eps)
-            out = out.view(mean.size()[0], 1, 28, 28)
-            rec, _, _ = self.model.decode(h)
-            rec = rec.view(mean.size()[0], 1, 28, 28)
-            writer.add_scalar('loss', loss, step)
-            writer.add_image('im_0', out[0], step)
-            writer.add_image('im_1', out[1], step)
-            writer.add_image('rec_0', rec[2], step)
-            writer.add_image('rec_1', rec[3], step)
+            return mean, logvar, p_mu, loss
 

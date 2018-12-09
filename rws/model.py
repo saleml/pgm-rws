@@ -45,7 +45,7 @@ class BasicModel(nn.Module):
 
     @property
     def pi(self):
-        return F.softmax(self.pre_pi)
+        return F.softmax(self.pre_pi, 0)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
@@ -60,7 +60,7 @@ class BasicModel(nn.Module):
                 sample = sigma * eps + mu
             return sample, mu, sigma
         elif self.mode == 'dis-GMM':
-            probas = F.softmax(mu)
+            probas = F.softmax(mu, 1)
             distrib = OneHotCategorical(probas)
             sample = distrib.sample()
             return sample, probas, torch.ones(1)
@@ -112,7 +112,7 @@ class ToyModel(nn.Module):
     """Only for 2d GMM now"""
 
     def __init__(self, input_dim, hidden_dim=200, hidden_layers=2, encoding_dim=50, hidden_nonlinearity='tanh',
-                 mode='dis-GMM', mus=None, sigmas=None):
+                 mode='dis-GMM', learn_mu=True, mus=None, sigmas=None):
         super().__init__()
 
         self.input_dim = input_dim
@@ -120,6 +120,8 @@ class ToyModel(nn.Module):
         self.encoding_dim = encoding_dim
         self.hidden_nonlinearity = hidden_nonlinearity
         self.hidden_layers = hidden_layers
+
+        self.learn_mu = learn_mu
 
         self.mode = mode
 
@@ -140,20 +142,23 @@ class ToyModel(nn.Module):
             C = self.encoding_dim
             radius = 10.
             # mean = radius [cos (2pi latent / C), sin(2pi latent / C)]
-            self.mus = torch.from_numpy(np.array([np.cos(2 * np.pi / C * np.arange(C, dtype=float)),
-                                                  np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T).float()
-            self.mus *= radius
+            if not learn_mu:
+                self.mus = torch.from_numpy(np.array([np.cos(2 * np.pi / C * np.arange(C, dtype=float)),
+                                                      np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T).float()
+                self.mus *= radius
+            else:
+                self.mus = torch.rand((C, self.input_dim), requires_grad=True)
             self.sigmas = torch.tensor([1., 3.])
 
     @property
     def pi(self):
-        return F.softmax(self.pre_pi)
+        return F.softmax(self.pre_pi, 0)
 
     def encode(self, input, reparametrize=False):
         out = self.encoder(input)
         mu = self.fc_mu(out)
         if self.mode == 'dis-GMM':
-            probas = F.softmax(mu)
+            probas = F.softmax(mu, 1)
             distrib = OneHotCategorical(probas)
             sample = distrib.sample()
             return sample, probas, torch.ones(1)
@@ -180,13 +185,14 @@ class ToyModel(nn.Module):
         return (sample, mu, sigma), (p, mu_gen, sigma_gen)
 
     def sample(self, num_samples):
-        samples = None
-        if self.mode == 'dis-GMM':
-            distrib = OneHotCategorical(self.pi)
-            z = distrib.sample((num_samples,))
-            samples, _, _ = self.decode(z)
-        elif self.mode == 'cont-GMM':
-            pass
-        else:
-            raise NotImplementedError('mode not implemented')
-        return samples
+        with torch.no_grad():
+            samples = None
+            if self.mode == 'dis-GMM':
+                distrib = OneHotCategorical(self.pi)
+                z = distrib.sample((num_samples,))
+                samples, _, _ = self.decode(z)
+            elif self.mode == 'cont-GMM':
+                pass
+            else:
+                raise NotImplementedError('mode not implemented')
+            return samples
