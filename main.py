@@ -132,8 +132,8 @@ def main():
     time_now = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
     step = 0
 
-    path = './logs_{}/{}_{}_C{}_K{}_{}_{}'.format(args.dataset, args.algo, args.VR,
-                                                  args.C, args.K, 'nomu' if args.no_mu else 'mu', time_now)
+    path = './logs_{}/{}_{}_C{}_R{}_K{}_{}_{}'.format(args.dataset, args.algo, args.VR,
+                                                  args.C, args.radius, args.K, 'nomu' if args.no_mu else 'mu', time_now)
     writer = tensorboardX.SummaryWriter(path)
 
     exp_ = exp(train_loader, model)
