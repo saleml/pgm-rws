@@ -27,9 +27,10 @@ class IWAE(BaseAlgo):
 
     '''
 
-    def __init__(self, model, optim, K=1, mode='MNIST', RP=False, VR=None):
+    def __init__(self, model, optim, scheduler, K=1, mode='MNIST', RP=False, VR=None):
         super().__init__(model, mode)
         self.optim = optim
+        self.scheduler = scheduler
         self.K = K
         self.RP = RP
         self.VR = VR
@@ -89,10 +90,10 @@ class IWAE(BaseAlgo):
         else:
             raise NotImplementedError('not implemented')
 
-    def get_nll(self,  input, K):
-        sample, mean, logvar, _, _,_  = self.forward(input)
+    def get_nll(self, input, K):
+        sample, mean, logvar, _, _, _ = self.forward(input)
         log_weights = torch.zeros((input.size()[0], K))
-        log_ps = torch.zeros((input.size()[0],K))
+        log_ps = torch.zeros((input.size()[0], K))
         log_qs = torch.zeros((input.size()[0], K))
 
         for i in range(K):
@@ -166,6 +167,8 @@ class IWAE(BaseAlgo):
         self.model.zero_grad()
         loss.backward()
         self.optim.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
 
         return mean, logvar, loss
 
