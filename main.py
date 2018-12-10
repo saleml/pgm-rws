@@ -47,7 +47,7 @@ def parse_args():
 
     parser.add_argument("--lr", type=float, default=1e-3, help="initial learning rate")
 
-    parser.add_argument("--milestones", nargs='*', default=[700, 1500, 2000, 3000], help='scheduler milestones')
+    parser.add_argument("--milestones", nargs='*', type=int, default=[700, 1500, 2000, 3000], help='scheduler milestones')
     parser.add_argument("--gamma", type=float, default=0.316, help='decay of lr at each milestone')
     args = parser.parse_args()
     return args
