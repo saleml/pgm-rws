@@ -2,12 +2,14 @@ import os
 import torch
 from data.gmm_gen import GMMDataGen
 import argparse
+import matplotlib.pyplot as plt
 
 
 def compare_gmm_vis(d, checkpoints, sampler):
     true_samples = sampler(1337).transpose(1,0)
     files = filter(lambda f: f[-2:] == 'pt', os.listdir(d))
     files = filter(lambda f: f.split('_')[-1][:-3] in checkpoints, files)
+    files = sorted(files, key=lambda x: int(x.split('_')[-1][:-3]))
     files = list(files)
     samples = []
     for f in files:
@@ -15,16 +17,12 @@ def compare_gmm_vis(d, checkpoints, sampler):
         model = torch.load(path)
         samples.append(model.sample(1337).numpy().transpose(1,0))
 
-    # Gotta do this hack because pytorch messes with some low level library used by matplotlib fucking up everything on
-    import matplotlib
-    matplotlib.use('MacOSX')
-    import matplotlib.pyplot as plt
     _, axx = plt.subplots(1, len(checkpoints))
-    for sample, ax in zip(samples, axx):
+    for sample, ax, f in zip(samples, axx, files):
         ax.scatter(*true_samples, label='Samples generated from true distribution')
-        ax.scatter(*samples, label='Samples generated from learned model')
-    plt.savefig('test.png')
-    plt.show()
+        ax.scatter(*sample, label='Samples generated from learned model')
+        ax.set_title(f)
+    plt.savefig('plots/%s.png' % d)
 
 
 if __name__ == '__main__':
@@ -35,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoints', help='Checkpoints to use to load model', nargs='+')
     args = parser.parse_args()
 
+    print(args.directory)
     sampler = GMMDataGen(d=2, C=args.C, radius=args.R).next_batch
     compare_gmm_vis(args.directory, args.checkpoints, sampler)
 
