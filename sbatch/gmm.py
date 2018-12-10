@@ -24,7 +24,6 @@ for run in range(5):
                 script_to_run = "python main.py --d 2 --hidden-dim 1 --hidden-layers 1 --batch-size 100 --C 8 --K {} --radius {} --algo iwae --no-RP --VR VIMCO {}".format(K, radius, mu)
                 print(str(i) + ': ' + script_to_run)
                 subprocess.check_output(prefix + script_to_run, shell=True)
-                assert False
 
                 i += 1
                 script_to_run = "python main.py --d 2 --hidden-dim 1 --hidden-layers 1 --batch-size 100 --C 8 --K {} --radius {} --algo iwae --no-RP {}".format(K, radius, mu)
