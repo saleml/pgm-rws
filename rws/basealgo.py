@@ -1,6 +1,7 @@
 import torch
 from torchvision.utils import save_image
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import numpy as np
 from data.utils import L2_difference_perm
 
