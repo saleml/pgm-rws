@@ -2,6 +2,7 @@ import os
 import torch
 from data.gmm_gen import GMMDataGen
 import argparse
+import matplotlib.pyplot as plt
 
 
 def compare_gmm_vis(d, checkpoints, sampler):
@@ -15,10 +16,6 @@ def compare_gmm_vis(d, checkpoints, sampler):
         model = torch.load(path)
         samples.append(model.sample(1337).numpy().transpose(1,0))
 
-    # Gotta do this hack because pytorch messes with some low level library used by matplotlib fucking up everything on
-    import matplotlib
-    matplotlib.use('MacOSX')
-    import matplotlib.pyplot as plt
     _, axx = plt.subplots(1, len(checkpoints))
     for sample, ax in zip(samples, axx):
         ax.scatter(*true_samples, label='Samples generated from true distribution')
