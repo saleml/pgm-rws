@@ -16,4 +16,4 @@ def L2_difference_perm(mu, predicted, C):
         if best_L2 is None or L2 < best_L2:
             best_L2 = L2
             best_perm = perm
-    return best_L2, list(best_perm)
+    return best_L2 / C, list(best_perm)
