@@ -5,7 +5,7 @@ import torch
 
 
 class GMMDataGen:
-    def __init__(self, d=1, C=20, radius=10., cov_diag=None):
+    def __init__(self, d=1, C=20, radius=20., cov_diag=None):
         """
         :param d: dimension
         :param C: number of classes

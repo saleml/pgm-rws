@@ -37,7 +37,10 @@ def parse_args():
     parser.add_argument("--dataset", default='GMM',
                         help="Dataset to use")
     parser.add_argument("--C", type=int, default=4, help="Number of GMM classes")
-    parser.add_argument("--epochs", default=10)
+
+    parser.add_argument("--radius", type=float, default=20., help="Radius of circle containing GMM means")
+
+    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--mode", choices=['MNIST', 'dis-GMM', 'cont-GMM'], default='dis-GMM')
     parser.add_argument('--no-RP', action='store_true', default=False,
                         help='reparametrization trick')
@@ -76,12 +79,12 @@ def main():
             batch_size=args.batch_size, shuffle=True)
 
     elif args.dataset == 'GMM':
-        train_loader = GMMDataGen(args.d, C=args.C)
-        test_loader = GMMDataGen(args.d, C=args.C)
+        train_loader = GMMDataGen(args.d, C=args.C, radius=args.radius)
+        test_loader = GMMDataGen(args.d, C=args.C, radius=args.radius)
         input_dim = args.d
         encoding_dim = args.C
         model = ToyModel(input_dim, args.hidden_dim, args.hidden_layers, encoding_dim,
-                         args.hidden_nonlinearity, args.mode, not args.no_mu)
+                         args.hidden_nonlinearity, args.mode, args.radius, not args.no_mu)
         test_set = test_loader.next_batch(1000, use_torch=False)
         test_posteriors = test_loader.get_posteriors(test_set)
 
