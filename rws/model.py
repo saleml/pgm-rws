@@ -112,7 +112,7 @@ class ToyModel(nn.Module):
     """Only for 2d GMM now"""
 
     def __init__(self, input_dim, hidden_dim=200, hidden_layers=2, encoding_dim=50, hidden_nonlinearity='tanh',
-                 mode='dis-GMM', learn_mu=True, mus=None, sigmas=None):
+                 mode='dis-GMM', radius=20, learn_mu=True, mus=None, sigmas=None):
         super().__init__()
 
         self.input_dim = input_dim
@@ -140,14 +140,14 @@ class ToyModel(nn.Module):
         # Decoder
         if mus is None or sigmas is None:
             C = self.encoding_dim
-            radius = 10.
             # mean = radius [cos (2pi latent / C), sin(2pi latent / C)]
             if not learn_mu:
                 self.mus = torch.from_numpy(np.array([np.cos(2 * np.pi / C * np.arange(C, dtype=float)),
                                                       np.sin(2 * np.pi / C * np.arange(C, dtype=float))]).T).float()
                 self.mus *= radius
             else:
-                self.mus = torch.rand((C, self.input_dim), requires_grad=True)
+                self.mus = radius * torch.rand((C, self.input_dim))
+                self.mus.requires_grad_(True)
             self.sigmas = torch.tensor([1., 3.])
 
     @property

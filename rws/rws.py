@@ -26,10 +26,12 @@ class RWS(BaseAlgo):
 
     '''
 
-    def __init__(self, model, optim_recog, optim_model, K=1, mode='MNIST'):
+    def __init__(self, model, optim_recog, optim_model, scheduler_recog, scheduler_model, K=1, mode='MNIST'):
         super().__init__(model, mode)
         self.optim_recog = optim_recog
         self.optim_model = optim_model
+        self.scheduler_recog = scheduler_recog
+        self.scheduler_model = scheduler_model
         self.K = K
 
     def forward(self, X):
@@ -187,6 +189,11 @@ class RWS(BaseAlgo):
         loss_q_sleep = self.get_loss_q_sleep_update(mean)
         loss_q_sleep.backward()
         self.optim_recog.step()
+
+        if self.scheduler_recog is not None:
+            self.scheduler_model.step()
+            self.scheduler_recog.step()
+
         return mean, logvar, (loss_model, loss_q_wake, loss_q_sleep)
 
     def test_step(self, data):
