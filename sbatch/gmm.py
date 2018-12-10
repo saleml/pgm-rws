@@ -16,7 +16,7 @@ else:
     prefix = "sbatch --time=30:0 --ntasks=2 --mem-per-cpu=1G ./sbatch/run.sh "
 
 i = 0
-for run in range(5):
+for run in range(1):
     for K in (2, 5, 10, 20):
         for radius in (5, 20):
             for mu in ['--no-mu', '']:
