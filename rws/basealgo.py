@@ -57,7 +57,7 @@ class BaseAlgo:
 
     def visu(self, writer, step, args, epoch=None, batch_idx=None,
              len_data=None, len_whole_data=None, batch_size=None,
-             latent_proba=None, mus=None, test_set=None, test_posteriors=None, csv_writer=None):
+             latent_proba=None, mus=None, test_set=None, test_posteriors=None, csv_writer=None, path=None):
         mean, logvar, loss = args
 
         if isinstance(loss, tuple):
@@ -98,6 +98,9 @@ class BaseAlgo:
                     writer.add_scalar('lr', scheduler.get_lr()[0], step)
 
                 csv_writer.writerow(data)
+
+                if step % 3000 == 0:
+                    torch.save(self.model, path + '/model_step_{}.pt'.format(step))
 
         if self.mode == 'MNIST':
             self.train_loss += sum_loss.item() * batch_size

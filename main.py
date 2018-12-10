@@ -161,7 +161,7 @@ def main():
             data = train_loader.next_batch(args.batch_size)
             out = algo.train_step(data)
             algo.visu(writer, step, out, latent_proba=train_loader.latent_proba, mus=train_loader.mus,
-                      test_set=test_set, test_posteriors=test_posteriors, csv_writer=csv_writer)
+                      test_set=test_set, test_posteriors=test_posteriors, csv_writer=csv_writer, path=path)
             algo.test_log(None, test_loader, None, step)
 
 
