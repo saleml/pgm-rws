@@ -2,13 +2,16 @@ import torch
 from torchvision.utils import save_image
 import matplotlib.pyplot as plt
 import numpy as np
+from data.utils import L2_difference_perm
 
 
 class BaseAlgo:
     def __init__(self, model, mode='MNIST'):
+        self.input_dim = None
         self.model = model
         self.mode = mode
         self.train_loss = 0.
+        self.scheduler, self.scheduler_model = None, None
 
     def test_step(self, data):
         raise NotImplementedError("Implemented in the subclasses")
@@ -53,7 +56,7 @@ class BaseAlgo:
 
     def visu(self, writer, step, args, epoch=None, batch_idx=None,
              len_data=None, len_whole_data=None, batch_size=None,
-             latent_proba=None, mus=None):
+             latent_proba=None, mus=None, test_set=None, test_posteriors=None, csv_writer=None):
         mean, logvar, loss = args
 
         if isinstance(loss, tuple):
@@ -63,21 +66,37 @@ class BaseAlgo:
 
         if self.mode == 'dis-GMM':
             if step % 100 == 0:
-                pi_diff = np.sum(np.abs(np.sort(self.model.pi.detach().numpy()) - np.sort(latent_proba)))
                 mu_pred = self.model.mus.detach().numpy()
-                mu_diff = np.sum(np.abs(mu_pred[mu_pred[:, 0].argsort()] - mus[mus[:, 0].argsort()]))
-                print('====> Step: {} Average loss: {:.4f}, L1_pi: {:.7f}, L1_mu {:.7f}'.format(
-                    step, sum_loss.item(), pi_diff, mu_diff))
-                writer.add_scalar('L1_pi', pi_diff, step)
-                writer.add_scalar('L1_mu', mu_diff, step)
+                mu_diff, best_perm = L2_difference_perm(mus, mu_pred, self.model.encoding_dim)
+                pi_diff = np.sqrt(np.sum((self.model.pi.detach().numpy()[best_perm] - latent_proba) ** 2))
+
+                _, posteriors, _ = self.model.encode(test_set)
+                L2_posteriors = np.mean(np.sqrt(np.sum((posteriors.detach().numpy() - test_posteriors) ** 2, axis=1)))
+
+                print('====> Step: {} Average loss: {:.4f}, L2_pi: {:.4f}, L2_mu: {:.3f}, L2_posteriors: {:.3f}'.format(
+                    step, sum_loss.item(), pi_diff, mu_diff, L2_posteriors))
+                writer.add_scalar('L2_pi', pi_diff, step)
+                writer.add_scalar('L2_mu', mu_diff, step)
+                writer.add_scalar('L2_posteriors', L2_posteriors, step)
+
+                data = [step, pi_diff, mu_diff, L2_posteriors]
 
                 if isinstance(loss, tuple):
                     loss_model, loss_q_wake, loss_q_sleep = loss
                     writer.add_scalar('model_loss', loss_model.item(), step)
                     writer.add_scalar('recon_sleep_loss', loss_q_sleep.item(), step)
                     writer.add_scalar('recon_wake_loss', loss_q_wake.item(), step)
+                    scheduler = self.scheduler_model
+                    data += [loss_model.item(), loss_q_sleep.item(), loss_q_wake.item()]
                 else:
-                    writer.add_scalar('loss', loss, step)
+                    writer.add_scalar('loss', loss.item(), step)
+                    scheduler = self.scheduler
+                    data += [loss.item()]
+
+                if scheduler is not None:
+                    writer.add_scalar('lr', scheduler.get_lr()[0], step)
+
+                csv_writer.writerow(data)
 
         if self.mode == 'MNIST':
             self.train_loss += sum_loss.item() * batch_size
@@ -97,8 +116,13 @@ class BaseAlgo:
                     writer.add_scalar('model_loss', loss_model.item(), step)
                     writer.add_scalar('recon_sleep_loss', loss_q_sleep.item(), step)
                     writer.add_scalar('recon_wake_loss', loss_q_wake.item(), step)
+                    scheduler = self.scheduler_model
                 else:
                     writer.add_scalar('loss', loss, step)
+                    scheduler = self.scheduler
+
+                if scheduler is not None:
+                    writer.add_scalar('lr', scheduler.get_lr()[0], step)
 
                 eps = torch.rand_like(mean)
                 h = mean + eps * torch.exp(logvar / 2)
