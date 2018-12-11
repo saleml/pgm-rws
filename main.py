@@ -50,8 +50,10 @@ def parse_args():
 
     parser.add_argument("--lr", type=float, default=1e-3, help="initial learning rate")
 
-    parser.add_argument("--milestones", nargs='*', type=int, default=[700, 1500, 2000, 3000], help='scheduler milestones')
+    parser.add_argument("--milestones", nargs='*', type=int, default=[], help='scheduler milestones')
     parser.add_argument("--gamma", type=float, default=0.316, help='decay of lr at each milestone')
+
+    parser.add_argument("--no-sleep", action='store_true', default=False, help='sleep phase of rws')
     args = parser.parse_args()
     return args
 
@@ -121,7 +123,7 @@ def main():
 
     # Train model
     if args.algo == 'rws':
-        algo = RWS(model, optim_recog, optim_model, scheduler_recog, scheduler_model, K=args.K, mode=args.mode)
+        algo = RWS(model, optim_recog, optim_model, scheduler_recog, scheduler_model, K=args.K, mode=args.mode, sleep=not args.no_sleep)
     elif args.algo == 'vae':
         algo = Vae(model, optimizer, args.mode)
     elif args.algo == 'iwae':
@@ -132,7 +134,7 @@ def main():
     time_now = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
     step = 0
 
-    path = './logs_{}/{}_{}_C{}_R{}_K{}_{}_{}'.format(args.dataset, args.algo, args.VR,
+    path = './logs_{}/{}_{}_C{}_R{}_K{}_{}_{}'.format(args.dataset, args.algo, args.VR if args.algo == 'iwae' else ('ww' if args.no_sleep else 'ws'),
                                                   args.C, args.radius, args.K, 'nomu' if args.no_mu else 'mu', time_now)
     writer = tensorboardX.SummaryWriter(path)
 

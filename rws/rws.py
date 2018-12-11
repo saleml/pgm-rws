@@ -26,13 +26,14 @@ class RWS(BaseAlgo):
 
     '''
 
-    def __init__(self, model, optim_recog, optim_model, scheduler_recog, scheduler_model, K=1, mode='MNIST'):
+    def __init__(self, model, optim_recog, optim_model, scheduler_recog, scheduler_model, K=1, mode='MNIST', sleep=True):
         super().__init__(model, mode)
         self.optim_recog = optim_recog
         self.optim_model = optim_model
         self.scheduler_recog = scheduler_recog
         self.scheduler_model = scheduler_model
         self.K = K
+        self.sleep = sleep
 
     def forward(self, X):
         (sample, mu, sigma), (model_sample, model_mu, model_sigma) = self.model(X)
@@ -184,11 +185,14 @@ class RWS(BaseAlgo):
         loss_q_wake.backward()
         self.optim_recog.step()
 
-        # Sleep q update
-        self.model.zero_grad()
-        loss_q_sleep = self.get_loss_q_sleep_update(mean)
-        loss_q_sleep.backward()
-        self.optim_recog.step()
+        if self.sleep:
+            # Sleep q update
+            self.model.zero_grad()
+            loss_q_sleep = self.get_loss_q_sleep_update(mean)
+            loss_q_sleep.backward()
+            self.optim_recog.step()
+        else:
+            loss_q_sleep = torch.zeros(1)
 
         if self.scheduler_recog is not None:
             self.scheduler_model.step()
